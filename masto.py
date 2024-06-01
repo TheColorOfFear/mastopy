@@ -476,6 +476,9 @@ def get_replies(post):
     replies = []
     replies_tmp = mastodon.status_context(post['id'])
     replies = replies_tmp['descendants']
+    for i in range(len(replies) - 1, -1, -1):
+        if replies[i]['in_reply_to_id'] != post['id']:
+            replies.pop(i)
     replies.insert(0, post)
     return replies
 
