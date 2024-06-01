@@ -282,9 +282,12 @@ def display_posts(posts_in, section_name='') :
             
             prompt = ''
             keys = ['enter', 'a']
-            if ((posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None)):
+            if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
                 prompt += '<T>hread, '
                 keys += 't'
+            if (posts[post_num]['replies_count'] > 0)      or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['replies_count'] > 0):
+                prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
+                keys += 'r'
             if len(post_archive) > 0 :
                 prompt += '<B>ack, '
                 keys += 'b'
@@ -315,6 +318,15 @@ def display_posts(posts_in, section_name='') :
                     posts = get_thread(posts[post_num]['reblog'])
                 else:
                     posts = get_thread(posts[post_num])
+                post_num = 0
+            elif key == 'r' :
+                print('View Replies')
+                post_archive.insert(0, posts)
+                post_num_archive.insert(0, post_num)
+                if posts[post_num]['reblog'] != None:
+                    posts = get_replies(posts[post_num]['reblog'])
+                else:
+                    posts = get_replies(posts[post_num])
                 post_num = 0
             elif key == 'q' :
                 print('View Quoted Post')
@@ -459,6 +471,13 @@ def get_thread(post):
     thread.append(post)
     #thread += thread_tmp['descendants']
     return thread
+
+def get_replies(post):
+    replies = []
+    replies_tmp = mastodon.status_context(post['id'])
+    replies = replies_tmp['descendants']
+    replies.insert(0, post)
+    return replies
 
 #logo = """\
 #      _______
