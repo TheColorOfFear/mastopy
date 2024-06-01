@@ -1,4 +1,5 @@
 from mastodon import Mastodon
+import mastodon as mastodonpy
 from getpass import getpass
 from os.path import exists
 import datetime
@@ -379,67 +380,71 @@ def main_menu():
     print('General:   <Q>uit')
     hr(minus=7)
     key = do_menu(['h','l','f', 'v','b', 's','t', 'm', 'q'], '>')
-    if key in ['h','l','f']:
-        if key == 'h':
-            print('Home timeline')
-            posts = mastodon.timeline_home(limit=int(input("how many posts to load? ")))
-            display_posts(posts)
-            return True
-        elif key =='l':
-            print('Local timeline')
-            posts = mastodon.timeline_local(limit=int(input("how many posts to load? ")))
-            display_posts(posts)
-            return True
-        elif key =='f':
-            print('Federated timeline')
-            posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
-            display_posts(posts)
-            return True
-    elif key in ['v','b']:
-        if key == 'v':
-            print('View post ID: ',end='')
-            id = input('')
-            if (id != ''):
-                post = [mastodon.status(id)]
-                display_posts(post)
-            return True
-        elif key =='b':
-            print('Bookmarks')
-            posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
-            display_posts(posts)
-            return True
-    elif key in ['s','t']:
-        if key == 's':
-            print('Search: ',end='')
-            search_term = input('')
-            if (search_term != ''):
-                posts = mastodon.search(search_term, result_type='statuses')
-                posts = posts['statuses']
-                if len(posts) > 0:
-                    display_posts(posts)
-                else:
-                    print('No Search Results')
-            return True
-        elif key == 't':
-            print('View posts by Hashtag: ',end='')
-            hashtag = input('')
-            if (hashtag != ''):
-                posts = mastodon.timeline_hashtag(hashtag, limit=int(input("how many posts to load? ")))
+    try:
+        if key in ['h','l','f']:
+            if key == 'h':
+                print('Home timeline')
+                posts = mastodon.timeline_home(limit=int(input("how many posts to load? ")))
                 display_posts(posts)
-            return True
-    elif key in ['m']:#,'n']:
-        if key == 'm':
-            print('My Account')
-            account = mastodon.me()
-            display_account(account)
-            return True
-    #    elif key == 'n':
-    #        print('Notifications')
-    #        posts = mastodon.notifications(types='status')
-    #        display_posts(posts)
-    #        return True
-    elif key == 'q':
-        print('Quit')
+                return True
+            elif key =='l':
+                print('Local timeline')
+                posts = mastodon.timeline_local(limit=int(input("how many posts to load? ")))
+                display_posts(posts)
+                return True
+            elif key =='f':
+                print('Federated timeline')
+                posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
+                display_posts(posts)
+                return True
+        elif key in ['v','b']:
+            if key == 'v':
+                print('View post ID: ',end='')
+                id = input('')
+                if (id != ''):
+                    post = [mastodon.status(id)]
+                    display_posts(post)
+                return True
+            elif key =='b':
+                print('Bookmarks')
+                posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
+                display_posts(posts)
+                return True
+        elif key in ['s','t']:
+            if key == 's':
+                print('Search: ',end='')
+                search_term = input('')
+                if (search_term != ''):
+                    posts = mastodon.search(search_term, result_type='statuses')
+                    posts = posts['statuses']
+                    if len(posts) > 0:
+                        display_posts(posts)
+                    else:
+                        print('No Search Results')
+                return True
+            elif key == 't':
+                print('View posts by Hashtag: ',end='')
+                hashtag = input('')
+                if (hashtag != ''):
+                    posts = mastodon.timeline_hashtag(hashtag, limit=int(input("how many posts to load? ")))
+                    display_posts(posts)
+                return True
+        elif key in ['m']:#,'n']:
+            if key == 'm':
+                print('My Account')
+                account = mastodon.me()
+                display_account(account)
+                return True
+        #    elif key == 'n':
+        #        print('Notifications')
+        #        posts = mastodon.notifications(types='status')
+        #        display_posts(posts)
+        #        return True
+        elif key == 'q':
+            print('Quit')
+            return False
+    except mastodonpy.MastodonNetworkError:
+        print('Network Error, Exiting.')
         return False
 
 def get_thread(post):
