@@ -324,10 +324,9 @@ def display_posts(posts_in, section_name='') :
                 post_archive.insert(0, posts)
                 post_num_archive.insert(0, post_num)
                 if posts[post_num]['reblog'] != None:
-                    posts = get_replies(posts[post_num]['reblog'])
+                    posts, post_num = get_replies(posts[post_num]['reblog'])
                 else:
-                    posts = get_replies(posts[post_num])
-                post_num = 0
+                    posts, post_num = get_replies(posts[post_num])
             elif key == 'q' :
                 print('View Quoted Post')
                 quotedURL = strip_tags(posts[post_num]['content']).split('\n')[-1].split('RE: ')[1]
@@ -475,12 +474,17 @@ def get_thread(post):
 def get_replies(post):
     replies = []
     replies_tmp = mastodon.status_context(post['id'])
+    thread = replies_tmp['ancestors']
     replies = replies_tmp['descendants']
     for i in range(len(replies) - 1, -1, -1):
         if replies[i]['in_reply_to_id'] != post['id']:
             replies.pop(i)
-    replies.insert(0, post)
-    return replies
+    replies_full = []
+    replies_full += thread
+    post_num = len(replies_full)
+    replies_full.append(post)
+    replies_full += replies
+    return replies_full, post_num
 
 #logo = """\
 #      _______
