@@ -286,7 +286,10 @@ def display_posts(posts_in, section_name='') :
                 prompt += '<T>hread, '
                 keys += 't'
             if (posts[post_num]['replies_count'] > 0)      or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['replies_count'] > 0):
-                prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
+                if posts[post_num]['reblog'] != None:
+                    prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['reblog']['replies_count']))
+                else:
+                    prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
                 keys += 'r'
             if len(post_archive) > 0 :
                 prompt += '<B>ack, '
