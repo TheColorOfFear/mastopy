@@ -379,11 +379,11 @@ def display_posts(posts_in, section_name='') :
                 if posts[post_num]['reblogged']:
                     print('Remove Boost')
                     mastodon.status_unreblog(posts[post_num]['id'])
-                    new_status = None
+                    new_status = mastodon.status(posts[post_num]['id'])
                 else:
                     print('Boost Post')
                     mastodon.status_reblog(posts[post_num]['id'])
-                    new_status = None
+                    new_status = mastodon.status(posts[post_num]['id'])
             elif key == 'f':
                 print('Refresh Post')
                 try:
