@@ -355,11 +355,11 @@ def display_posts(posts_in, section_name='') :
             else:
                 prompt += '<R>epost, '
             if posts[post_num]['bookmarked']:
-                prompt += 'Un<B>ookmark '
+                prompt += 'Un<B>ookmark, '
             else:
-                prompt += '<B>ookmark '
-            prompt += ': '
-            key = do_menu(['enter', 'l', 'r', 'b'], prompt)
+                prompt += '<B>ookmark, '
+            prompt += ' Re<F>resh Post : '
+            key = do_menu(['enter', 'l', 'r', 'b', 'f'], prompt)
             new_status = None
             if key == 'b':
                 if posts[post_num]['bookmarked']:
@@ -378,10 +378,19 @@ def display_posts(posts_in, section_name='') :
             elif key == 'r':
                 if posts[post_num]['reblogged']:
                     print('Remove Boost')
-                    new_status = mastodon.status_unreblog(posts[post_num]['id'])
+                    mastodon.status_unreblog(posts[post_num]['id'])
+                    new_status = None
                 else:
                     print('Boost Post')
-                    new_status = mastodon.status_reblog(posts[post_num]['id'])
+                    mastodon.status_reblog(posts[post_num]['id'])
+                    new_status = None
+            elif key == 'f':
+                print('Refresh Post')
+                try:
+                    new_status = mastodon.status(posts[post_num]['id'])
+                except mastodonpy.MastodonNetworkError:
+                    print('Network Error, Couldn\'t refresh post.')
+                    new_status = None
             if not(new_status == None):
                 posts[post_num] = new_status
 
