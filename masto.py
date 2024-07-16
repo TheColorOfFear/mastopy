@@ -17,6 +17,10 @@ import img2txt as image
 images = True
 quotes = True
 
+##img features
+imgcolour = "256" #best : "colour", "256" for some terminals
+imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
+
 ##create dirs
 if not os.path.exists('./mastopy/info/'):
     os.makedirs('./mastopy/info')
@@ -99,9 +103,10 @@ def display_post(post) :
                     if imgname == 'original':
                         imgname = 'original.png' # just assume PNG idk
                     urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
-                    image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname)
+                    image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth)
                 except:
                     print('Something went wrong displaying the image.')
+                    raise
                 print('\033[0m', end='')
     if show and (post['poll'] != None):
         print('\nPost has poll.')
@@ -113,7 +118,7 @@ def display_post(post) :
 
 def display_pfp(account, request='avatar_static', width = 10, deco = True):
     urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
-    pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True).split('\n')
+    pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=imgcolour).split('\n')
     out = ''
     if deco:
         out += ' '
@@ -176,16 +181,20 @@ def display_account(account, relationship=None, show_pfp = True, show_banner = T
 
 get_input_key = []
 def get_input() :
-    global get_input_key
-    get_input_key = []
-    def press(key) :
-        global get_input_key
-        get_input_key.append(key)
-        stop_listening()
-    listen_keyboard(on_press=press)
-    if len(get_input_key) == 0 :
-       get_input_key.append('esc')
-    return(get_input_key[0])
+    #TODO: catch specific error
+    try:
+       global get_input_key
+       get_input_key = []
+       def press(key) :
+           global get_input_key
+           get_input_key.append(key)
+           stop_listening()
+       listen_keyboard(on_press=press)
+       if len(get_input_key) == 0 :
+          get_input_key.append('esc')
+       return(get_input_key[0])
+    except:
+       return input()
 
 def yn_prompt(prompt) :
     key = do_menu(['y','n'], prompt)
