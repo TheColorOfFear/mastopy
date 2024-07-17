@@ -194,7 +194,10 @@ def get_input() :
           get_input_key.append('esc')
        return(get_input_key[0])
     except:
-       return input()
+       key = input().lower()
+       if key == "":
+          key = "enter"
+       return key
 
 def yn_prompt(prompt) :
     key = do_menu(['y','n'], prompt)
