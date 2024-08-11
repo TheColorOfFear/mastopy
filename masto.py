@@ -76,6 +76,18 @@ def hr(char='-', minus=0, length=-1) :
             print(char, end='')
     print('')
 
+def scroll(scroll_list):
+    offset = 0
+    key = ''
+    while key != 'esc' and key != 'enter':
+        for i in range(len(scroll_list) - offset):
+            print(scroll_list[i])
+        key = do_menu(['up','down','enter','esc'])
+        if key == 'up' and ((len(scroll_list) - offset) > os.get_terminal_size()[1]):
+            offset += 1
+        elif key == 'down' and offset > 0:
+            offset -= 1
+
 def display_post(post) :
     show = True
     account = post['account']
@@ -134,7 +146,7 @@ def display_post(post) :
         post_text.append('')
         post_text.append('Reposted:')
         post_text += display_post(post['reblog'])
-    print('')
+    #print('')
     return(post_text)
 
 def display_pfp(account, request='avatar_static', width = 10, deco = True):
@@ -276,9 +288,12 @@ def display_posts(posts_in, section_name='') :
     posts = posts_in
     post_archive = []
     post_num_archive = []
+    show_post = True
     while True :
         print('\n\n',end='')
-        display_post(posts[post_num])
+        if show_post:
+            post_text_list = display_post(posts[post_num])
+        show_post = True
         hr(minus=7)
         keys = ['s', '?', 'v']
         
@@ -315,6 +330,9 @@ def display_posts(posts_in, section_name='') :
             
             prompt = ''
             keys = ['enter', 'a']
+            if len(post_text_list) > os.get_terminal_size()[1]:
+                prompt += '<P>ost, '
+                keys += 'p'
             if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
                 prompt += '<T>hread, '
                 keys += 't'
@@ -342,6 +360,10 @@ def display_posts(posts_in, section_name='') :
                     post_num_archive.insert(0, post_num)
                     posts = newposts
                     post_num = 0
+            elif key == 'p':
+                print('View Post')
+                scroll(post_text_list)
+                show_post = False
             elif key == 'b':
                 print('Go Back')
                 posts = post_archive.pop(0)
