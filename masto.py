@@ -18,7 +18,7 @@ images = True
 quotes = True
 
 ##img features
-imgcolour = "256" #best : "colour", "256" for some terminals
+imgcolour = "colour" #best : "colour", "256" for some terminals
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
 
 ##create dirs
@@ -79,42 +79,63 @@ def hr(char='-', minus=0, length=-1) :
 def display_post(post) :
     show = True
     account = post['account']
+    post_text = [
+        str(account['display_name'] + ' | ' + account['acct']),
+        'posted on ' + str(post['created_at'])
+        ]
     print(account['display_name'] + ' | ' + account['acct'])
     print('posted on',  post['created_at'])
     if not(post['url'] == None):
         print(post['url'])
+        post_text.append(post['url'])
     if post['sensitive']:
         show = yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
+        post_text.append('sensitive content labeled "' + post['spoiler_text'])
     if show and (post['reblog'] == None):
         print('')
         print(strip_tags(post['content']))
+        post_text.append('')
+        post_text.append(strip_tags(post['content']))
     if show and (len(post['media_attachments']) != 0):
         print('')
         print('Post has media')
+        post_text.append('')
+        post_text.append('Post has media')
         if post['sensitive']:
             print('Media for this post marked as sensitive')
+            post_text.append('Media for this post marked as sensitive')
         for attachment in post['media_attachments']:
             print('')
             print(attachment['url'])
             print(attachment['description'])
+            post_text.append('')
+            post_text.append(attachment['url'])
+            post_text.append(attachment['description'])
             if images and yn_prompt('show image? (y/n) '):
                 try:
                     imgname = attachment['url'].split('/')[-1]
                     if imgname == 'original':
                         imgname = 'original.png' # just assume PNG idk
                     urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
-                    image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth)
+                    img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth, ret=True)
+                    post_text += img_text.split('\n')[:-1]
+                    print(img_text)
                 except:
                     print('Something went wrong displaying the image.')
                     raise
                 print('\033[0m', end='')
+                post_text.append('\033[0m')
     if show and (post['poll'] != None):
         print('\nPost has poll.')
+        post_text.append('Post has poll')
     if (post['reblog']):
         print('')
-        print('reposted :')
-        display_post(post['reblog'])
+        print('Reposted :')
+        post_text.append('')
+        post_text.append('Reposted:')
+        post_text += display_post(post['reblog'])
     print('')
+    return(post_text)
 
 def display_pfp(account, request='avatar_static', width = 10, deco = True):
     urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
