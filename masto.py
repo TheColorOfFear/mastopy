@@ -10,12 +10,14 @@ import os
 from sshkeyboard import listen_keyboard, stop_listening
 from time import sleep
 import urllib.request
+import textwrap
 import re
 import img2txt as image
 
 ##feature toggle
 images = True
 quotes = True
+scrolling = True #Warning, will clog up your terminal scrollback
 
 ##img features
 imgcolour = "colour" #best : "colour", "256" for some terminals
@@ -78,36 +80,47 @@ def hr(char='-', minus=0, length=-1) :
 
 def scroll(scroll_list):
     offset = 0
+    scroll 
     key = ''
-    while key != 'esc' and key != 'enter':
+    while not(key in ['enter', 'esc', 's']):
         for i in range(len(scroll_list) - offset):
             print(scroll_list[i])
-        key = do_menu(['up','down','enter','esc'])
-        if key == 'up' and ((len(scroll_list) - offset) > os.get_terminal_size()[1]):
+        key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
+        if key == 'up' and ((len(scroll_list) - offset) >= os.get_terminal_size()[1]):
             offset += 1
         elif key == 'down' and offset > 0:
             offset -= 1
+        elif key == 'pageup':
+            if (len(scroll_list) - (offset + (os.get_terminal_size()[1] - 2))) >= os.get_terminal_size()[1]:
+                offset += os.get_terminal_size()[1] - 2
+            else:
+                offset = len(scroll_list) - (os.get_terminal_size()[1] - 1)
+        elif key == 'pagedown':
+            if (offset - (os.get_terminal_size()[1] - 2)) > 0:
+                offset -= os.get_terminal_size()[1] - 2
+            else:
+                offset = 0
 
 def display_post(post) :
     show = True
     account = post['account']
     post_text = [
-        str(account['display_name'] + ' | ' + account['acct']),
-        'posted on ' + str(post['created_at'])
+        textwrap.fill(account['display_name'] + ' | ' + account['acct'], os.get_terminal_size()[0]),
+        textwrap.fill('posted on ' + str(post['created_at']), os.get_terminal_size()[0])
         ]
     print(account['display_name'] + ' | ' + account['acct'])
     print('posted on',  post['created_at'])
     if not(post['url'] == None):
         print(post['url'])
-        post_text.append(post['url'])
+        post_text.append(textwrap.fill(post['url'], os.get_terminal_size()[0]))
     if post['sensitive']:
         show = yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
-        post_text.append('sensitive content labeled "' + post['spoiler_text'])
+        post_text.append(textwrap.fill('sensitive content labeled "' + post['spoiler_text'], os.get_terminal_size()[0]))
     if show and (post['reblog'] == None):
         print('')
-        print(strip_tags(post['content']))
+        print(textwrap.fill(strip_tags(post['content']), os.get_terminal_size()[0]))
         post_text.append('')
-        post_text.append(strip_tags(post['content']))
+        post_text.append(textwrap.fill(strip_tags(post['content']), os.get_terminal_size()[0]))
     if show and (len(post['media_attachments']) != 0):
         print('')
         print('Post has media')
@@ -115,14 +128,15 @@ def display_post(post) :
         post_text.append('Post has media')
         if post['sensitive']:
             print('Media for this post marked as sensitive')
-            post_text.append('Media for this post marked as sensitive')
+            post_text.append(textwrap.fill('Media for this post marked as sensitive', os.get_terminal_size()[0]))
         for attachment in post['media_attachments']:
             print('')
             print(attachment['url'])
-            print(attachment['description'])
+            print(textwrap.fill(str(attachment['description']), os.get_terminal_size()[0]))
             post_text.append('')
-            post_text.append(attachment['url'])
-            post_text.append(attachment['description'])
+            post_text.append(textwrap.fill(attachment['url'], os.get_terminal_size()[0]))
+            post_text.append(textwrap.fill(str(attachment['description']), os.get_terminal_size()[0]))
+
             if images and yn_prompt('show image? (y/n) '):
                 try:
                     imgname = attachment['url'].split('/')[-1]
@@ -147,7 +161,10 @@ def display_post(post) :
         post_text.append('Reposted:')
         post_text += display_post(post['reblog'])
     #print('')
-    return(post_text)
+    post_text_final = []
+    for i in range(len(post_text)):
+        post_text_final += post_text[i].split('\n')
+    return(post_text_final)
 
 def display_pfp(account, request='avatar_static', width = 10, deco = True):
     urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
@@ -330,7 +347,7 @@ def display_posts(posts_in, section_name='') :
             
             prompt = ''
             keys = ['enter', 'a']
-            if len(post_text_list) > os.get_terminal_size()[1]:
+            if scrolling and len(post_text_list) > os.get_terminal_size()[1]:
                 prompt += '<P>ost, '
                 keys += 'p'
             if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
