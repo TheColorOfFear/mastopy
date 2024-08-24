@@ -406,15 +406,70 @@ def display_posts(posts_in, section_name='') :
             if not(new_status == None):
                 posts[post_num] = new_status
 
+def write_status():
+    print('Entering message. Word wrap will give you')
+    print('soft linebreaks. Pressing the "enter" key')
+    print('will give you a hard linebreak. Press')
+    print('"enter" twice when finished.')
+    postList = []
+    lastline = 'tmp'
+    while lastline != '':
+        lastline = input()
+        if lastline != '':
+            postList.append(lastline)
+    post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+    cw_string = '   add content <W>arning\n'
+    cw = None
+    
+    in_menu = True
+    while in_menu:
+        key = do_menu(['?','a','c','s','p','w','r','h'], 'Entry command (? for options) -> ')
+        if key == '?':
+            print('\n' +
+                  'One of...\n' +
+                  '   <A>bort\n' +
+                  '   <C>ontinue\n' +
+                  '   post <S>tatus\n' +
+                  '   <P>rint formatted\n' +
+                  cw_string)
+        elif key == 'a':
+            print('Abort')
+            if yn_prompt('Are you sure? '):
+                in_menu = False
+        elif key == 'c':
+            print('Continue')
+            postList = [post]
+            lastline = 'tmp'
+            while lastline != '':
+                lastline = input()
+                if lastline != '':
+                    postList.append(lastline)
+            post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+        elif key == 's':
+            print('Post status')
+            mastodon.status_post(post, visibility='direct', spoiler_text=cw)
+            in_menu = False
+        elif key == 'p':
+            print('Print formatted')
+            print(post)
+        elif key == 'w':
+            print('Add CW')
+            print('Current CW is: ' + str(cw))
+            cw = input('Content warning (press enter for none) : ')
+            if cw == '':
+                cw = None
+            cw_string = '   change content <W>arning\n'
+            print('')
+
 def main_menu():
     hr(minus=7)
     print('Timelines: <H>ome, <L>ocal, <F>ederated')
-    print('Posts:     <V>iew by ID, <B>ookmarks')
+    print('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
     print('Search:    <S>earch, search by Hash<T>ag')
     print('User:      <M>y Account')#, <N>otifications')
     print('General:   <Q>uit')
     hr(minus=7)
-    key = do_menu(['h','l','f', 'v','b', 's','t', 'm', 'q'], '>')
+    key = do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
     try:
         if key in ['h','l','f']:
             if key == 'h':
@@ -432,7 +487,7 @@ def main_menu():
                 posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
                 display_posts(posts)
                 return True
-        elif key in ['v','b']:
+        elif key in ['v','b','c']:
             if key == 'v':
                 print('View post ID: ',end='')
                 id = input('')
@@ -444,6 +499,10 @@ def main_menu():
                 print('Bookmarks')
                 posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
                 display_posts(posts)
+                return True
+            elif key =='c':
+                print('Post')
+                write_status()
                 return True
         elif key in ['s','t']:
             if key == 's':
