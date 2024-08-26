@@ -60,7 +60,7 @@ class MLStripper(HTMLParser):
 def strip_tags(html):
     parser = HTMLParser()
     s = MLStripper()
-    s.feed(html.replace("<br>", "\n").replace("</p><p>", "\n\n"))
+    s.feed(html.replace("<br>", "\n").replace("<br />", "\n").replace("</p><p>", "\n\n"))
     return s.get_data()
 
 def escape_ansi(line):
