@@ -420,10 +420,10 @@ def write_status():
     post = ''.join(('\n' + line) for line in postList).lstrip('\n')
     cw_string = '   add content <W>arning\n'
     cw = None
-    
+    visibility = None
     in_menu = True
     while in_menu:
-        key = do_menu(['?','a','c','s','p','w','r','h'], 'Entry command (? for options) -> ')
+        key = do_menu(['?','a','c','s','p','w','v'], 'Entry command (? for options) -> ')
         if key == '?':
             print('\n' +
                   'One of...\n' +
@@ -431,7 +431,8 @@ def write_status():
                   '   <C>ontinue\n' +
                   '   post <S>tatus\n' +
                   '   <P>rint formatted\n' +
-                  cw_string)
+                  cw_string +
+                  '   change <V>isibility\n')
         elif key == 'a':
             print('Abort')
             if yn_prompt('Are you sure? '):
@@ -447,7 +448,7 @@ def write_status():
             post = ''.join(('\n' + line) for line in postList).lstrip('\n')
         elif key == 's':
             print('Post status')
-            mastodon.status_post(post, visibility='direct', spoiler_text=cw)
+            mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
             in_menu = False
         elif key == 'p':
             print('Print formatted')
@@ -460,6 +461,26 @@ def write_status():
                 cw = None
             cw_string = '   change content <W>arning\n'
             print('')
+        elif key == 'v':
+            print('Change Visibility')
+            print('Current Visibility is: ', end='')
+            if visibility == None:
+                print('default')
+            else:
+                print(visibility)
+            print('Change to:\n  <1> Default\n  <2> Public\n  <3> Unlisted\n  <4> Private\n  <5> Direct')
+            key = do_menu(['1','2','3','4','5'],'> ')
+            print(key)
+            if key == '1':
+                visibility = None
+            if key == '2':
+                visibility = 'public'
+            if key == '3':
+                visibility = 'unlisted'
+            if key == '4':
+                visibility = 'private'
+            if key == '5':
+                visibility = 'direct'
 
 def main_menu():
     hr(minus=7)
