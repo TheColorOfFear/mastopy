@@ -370,8 +370,8 @@ def display_posts(posts_in, section_name='') :
                 prompt += 'Un<B>ookmark, '
             else:
                 prompt += '<B>ookmark, '
-            prompt += ' Re<F>resh Post : '
-            key = do_menu(['enter', 'l', 'r', 'b', 'f'], prompt)
+            prompt += ' Re<F>resh Post, <C>omment : '
+            key = do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
             new_status = None
             if key == 'b':
                 if posts[post_num]['bookmarked']:
@@ -403,14 +403,17 @@ def display_posts(posts_in, section_name='') :
                 except mastodonpy.MastodonNetworkError:
                     print('Network Error, Couldn\'t refresh post.')
                     new_status = None
+            elif key == 'c':
+                print('Comment')
+                write_status(in_reply_to = posts[post_num])
             if not(new_status == None):
                 posts[post_num] = new_status
 
-def write_status():
+def write_status(in_reply_to = None):
     print('Entering message. Word wrap will give you')
     print('soft linebreaks. Pressing the "enter" key')
     print('will give you a hard linebreak. Press')
-    print('"enter" twice when finished.')
+    print('"enter" twice when finished.\n')
     postList = []
     lastline = 'tmp'
     while lastline != '':
@@ -448,7 +451,10 @@ def write_status():
             post = ''.join(('\n' + line) for line in postList).lstrip('\n')
         elif key == 's':
             print('Post status')
-            mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+            if in_reply_to == None:
+                mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+            else:
+                mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
             in_menu = False
         elif key == 'p':
             print('Print formatted')
