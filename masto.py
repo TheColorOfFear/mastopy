@@ -80,10 +80,28 @@ def hr(char='-', minus=0, length=-1) :
             print(char, end='')
     print('')
 
+def get_post_size(post_list):
+    if scroll_type == 'pager':
+        text_list = []
+        for i in range(len(post_list)):
+            if len(post_list[i]) == 0 or not(post_list[i][0] == '\x1b'):
+                text_list.append(post_list[i])
+        text = ''.join([(x+'\n') for x in post_list])
+        text = re.sub(r'\x1b.*m', '', text)
+        text_list = text.split('\n')
+        return len(text_list)
+    else:
+        return len(post_list)
 
 def scroll(scroll_list):
     if scroll_type == 'pager':
-        pager(''.join([(x+'\n') for x in scroll_list]))
+        text_list = []
+        for i in range(len(scroll_list)):
+            if len(scroll_list[i]) == 0 or not(scroll_list[i][0] == '\x1b'):
+                text_list.append(scroll_list[i])
+        text = ''.join([(x+'\n') for x in text_list])
+        text = re.sub(r'\x1b.*m', '', text)
+        pager(text)
     else:
         ttypager(''.join([(x+'\n') for x in scroll_list]))
         offset = 0
@@ -354,7 +372,7 @@ def display_posts(posts_in, section_name='') :
             
             prompt = ''
             keys = ['enter', 'a']
-            if scrolling and len(post_text_list) > os.get_terminal_size()[1]:
+            if scrolling and get_post_size(post_text_list) > os.get_terminal_size()[1]:
                 prompt += '<P>ost, '
                 keys += 'p'
             if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
