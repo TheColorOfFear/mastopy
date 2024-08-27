@@ -13,14 +13,16 @@ import urllib.request
 import textwrap
 import re
 import img2txt as image
+from pydoc import pager
 
 ##feature toggle
 images = True
 quotes = True
-scrolling = True #Warning, will clog up your terminal scrollback
+scrolling = True #Warning, will clog up your terminal scrollback if scroll_type != 'pager'
+scroll_type = 'pager' #if 'pager', uses pydoc pager. otherwise uses my own pager
 
 ##img features
-imgcolour = "colour" #best : "colour", "256" for some terminals
+imgcolour = "256" #best : "colour", "256" for some terminals
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
 
 ##create dirs
@@ -78,28 +80,33 @@ def hr(char='-', minus=0, length=-1) :
             print(char, end='')
     print('')
 
+
 def scroll(scroll_list):
-    offset = 0
-    scroll 
-    key = ''
-    while not(key in ['enter', 'esc', 's']):
-        for i in range(len(scroll_list) - offset):
-            print(scroll_list[i])
-        key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
-        if key == 'up' and ((len(scroll_list) - offset) >= os.get_terminal_size()[1]):
-            offset += 1
-        elif key == 'down' and offset > 0:
-            offset -= 1
-        elif key == 'pageup':
-            if (len(scroll_list) - (offset + (os.get_terminal_size()[1] - 2))) >= os.get_terminal_size()[1]:
-                offset += os.get_terminal_size()[1] - 2
-            else:
-                offset = len(scroll_list) - (os.get_terminal_size()[1] - 1)
-        elif key == 'pagedown':
-            if (offset - (os.get_terminal_size()[1] - 2)) > 0:
-                offset -= os.get_terminal_size()[1] - 2
-            else:
-                offset = 0
+    if scroll_type == 'pager':
+        pager(''.join([(x+'\n') for x in scroll_list]))
+    else:
+        ttypager(''.join([(x+'\n') for x in scroll_list]))
+        offset = 0
+        scroll
+        key = ''
+        while not(key in ['enter', 'esc', 's']):
+            for i in range(len(scroll_list) - offset):
+                print(scroll_list[i])
+            key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
+            if key == 'up' and ((len(scroll_list) - offset) >= os.get_terminal_size()[1]):
+                offset += 1
+            elif key == 'down' and offset > 0:
+                offset -= 1
+            elif key == 'pageup':
+                if (len(scroll_list) - (offset + (os.get_terminal_size()[1] - 2))) >= os.get_terminal_size()[1]:
+                    offset += os.get_terminal_size()[1] - 2
+                else:
+                    offset = len(scroll_list) - (os.get_terminal_size()[1] - 1)
+            elif key == 'pagedown':
+                if (offset - (os.get_terminal_size()[1] - 2)) > 0:
+                    offset -= os.get_terminal_size()[1] - 2
+                else:
+                    offset = 0
 
 def display_post(post) :
     show = True
