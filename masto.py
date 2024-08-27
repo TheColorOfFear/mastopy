@@ -64,7 +64,7 @@ class MLStripper(HTMLParser):
 def strip_tags(html):
     parser = HTMLParser()
     s = MLStripper()
-    s.feed(html.replace("<br>", "\n").replace("</p><p>", "\n\n"))
+    s.feed(html.replace("<br>", "\n").replace("<br />", "\n").replace("</p><p>", "\n\n"))
     return s.get_data()
 
 def escape_ansi(line):
@@ -437,8 +437,8 @@ def display_posts(posts_in, section_name='') :
                 prompt += 'Un<B>ookmark, '
             else:
                 prompt += '<B>ookmark, '
-            prompt += ' Re<F>resh Post : '
-            key = do_menu(['enter', 'l', 'r', 'b', 'f'], prompt)
+            prompt += ' Re<F>resh Post, <C>omment : '
+            key = do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
             new_status = None
             if key == 'b':
                 if posts[post_num]['bookmarked']:
@@ -470,18 +470,100 @@ def display_posts(posts_in, section_name='') :
                 except mastodonpy.MastodonNetworkError:
                     print('Network Error, Couldn\'t refresh post.')
                     new_status = None
+            elif key == 'c':
+                print('Comment')
+                write_status(in_reply_to = posts[post_num])
             if not(new_status == None):
                 posts[post_num] = new_status
+
+def write_status(in_reply_to = None):
+    print('Entering message. Word wrap will give you')
+    print('soft linebreaks. Pressing the "enter" key')
+    print('will give you a hard linebreak. Press')
+    print('"enter" twice when finished.\n')
+    postList = []
+    lastline = 'tmp'
+    while lastline != '':
+        lastline = input()
+        if lastline != '':
+            postList.append(lastline)
+    post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+    cw_string = '   add content <W>arning\n'
+    cw = None
+    visibility = None
+    in_menu = True
+    while in_menu:
+        key = do_menu(['?','a','c','s','p','w','v'], 'Entry command (? for options) -> ')
+        if key == '?':
+            print('\n' +
+                  'One of...\n' +
+                  '   <A>bort\n' +
+                  '   <C>ontinue\n' +
+                  '   post <S>tatus\n' +
+                  '   <P>rint formatted\n' +
+                  cw_string +
+                  '   change <V>isibility\n')
+        elif key == 'a':
+            print('Abort')
+            if yn_prompt('Are you sure? '):
+                in_menu = False
+        elif key == 'c':
+            print('Continue')
+            postList = [post]
+            lastline = 'tmp'
+            while lastline != '':
+                lastline = input()
+                if lastline != '':
+                    postList.append(lastline)
+            post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+        elif key == 's':
+            print('Post status')
+            if in_reply_to == None:
+                mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+            else:
+                mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
+            in_menu = False
+        elif key == 'p':
+            print('Print formatted')
+            print(post)
+        elif key == 'w':
+            print('Add CW')
+            print('Current CW is: ' + str(cw))
+            cw = input('Content warning (press enter for none) : ')
+            if cw == '':
+                cw = None
+            cw_string = '   change content <W>arning\n'
+            print('')
+        elif key == 'v':
+            print('Change Visibility')
+            print('Current Visibility is: ', end='')
+            if visibility == None:
+                print('default')
+            else:
+                print(visibility)
+            print('Change to:\n  <1> Default\n  <2> Public\n  <3> Unlisted\n  <4> Private\n  <5> Direct')
+            key = do_menu(['1','2','3','4','5'],'> ')
+            print(key)
+            if key == '1':
+                visibility = None
+            if key == '2':
+                visibility = 'public'
+            if key == '3':
+                visibility = 'unlisted'
+            if key == '4':
+                visibility = 'private'
+            if key == '5':
+                visibility = 'direct'
 
 def main_menu():
     hr(minus=7)
     print('Timelines: <H>ome, <L>ocal, <F>ederated')
-    print('Posts:     <V>iew by ID, <B>ookmarks')
+    print('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
     print('Search:    <S>earch, search by Hash<T>ag')
     print('User:      <M>y Account')#, <N>otifications')
     print('General:   <Q>uit')
     hr(minus=7)
-    key = do_menu(['h','l','f', 'v','b', 's','t', 'm', 'q'], '>')
+    key = do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
     try:
         if key in ['h','l','f']:
             if key == 'h':
@@ -499,7 +581,7 @@ def main_menu():
                 posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
                 display_posts(posts)
                 return True
-        elif key in ['v','b']:
+        elif key in ['v','b','c']:
             if key == 'v':
                 print('View post ID: ',end='')
                 id = input('')
@@ -511,6 +593,10 @@ def main_menu():
                 print('Bookmarks')
                 posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
                 display_posts(posts)
+                return True
+            elif key =='c':
+                print('Post')
+                write_status()
                 return True
         elif key in ['s','t']:
             if key == 's':
