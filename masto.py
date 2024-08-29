@@ -173,7 +173,6 @@ def display_post(post) :
                     print(img_text)
                 except:
                     print('Something went wrong displaying the image.')
-                    raise
                 print('\033[0m', end='')
                 post_text.append('\033[0m')
     if show and (post['poll'] != None):
@@ -371,7 +370,7 @@ def display_posts(posts_in, section_name='') :
             print('View')
             
             prompt = ''
-            keys = ['enter', 'a']
+            keys = ['enter', 'a', 'f']
             if scrolling and get_post_size(post_text_list) > os.get_terminal_size()[1]:
                 prompt += '<P>ost, '
                 keys += 'p'
@@ -390,7 +389,7 @@ def display_posts(posts_in, section_name='') :
             if quotes and strip_tags(posts[post_num]['content']).split('\n')[-1][:8] == 'RE: http':
                 prompt += '<Q>uoted Post, '
                 keys += 'q'
-            prompt += '<A>ccount : '
+            prompt += '<A>ccount, Re<F>resh Post : '
             key = do_menu(keys, prompt)
             
             if key == 'a' :
@@ -439,6 +438,13 @@ def display_posts(posts_in, section_name='') :
                     post_num = 0
                 else:
                     print('Quoted Post Not Found')
+            elif key == 'f':
+                print('Refresh Post')
+                try:
+                    new_status = mastodon.status(posts[post_num]['id'])
+                except mastodonpy.MastodonNetworkError:
+                    print('Network Error, Couldn\'t refresh post.')
+                    new_status = None
         elif key == 'i':
             print('Interact')
             prompt = ''
