@@ -18,8 +18,8 @@ from pydoc import pager
 ##feature toggle
 images = True
 quotes = True
-scrolling = True #Warning, will clog up your terminal scrollback if scroll_type != 'pager'
-scroll_type = 'pager' #if 'pager', uses pydoc pager. otherwise uses my own pager
+scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
+scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
@@ -102,8 +102,40 @@ def scroll(scroll_list):
         text = ''.join([(x+'\n') for x in text_list])
         text = re.sub(r'\x1b.*m', '', text)
         pager(text)
-    else:
-        ttypager(''.join([(x+'\n') for x in scroll_list]))
+    elif scroll_type == 'ansi':
+        fromTop = os.get_terminal_size()[1] - 1
+        old_fromTop = 0
+        key = ''
+        while not(key in ['enter', 'esc', 's']):
+            if fromTop > old_fromTop :
+                for i in range(old_fromTop, fromTop):
+                    try:
+                        print(scroll_list[i])
+                old_fromTop = fromTop
+            elif fromTop < old_fromTop:
+                print('\033[;H')
+                for i in range((fromTop - (os.get_terminal_size()[1] - 1)), fromTop):
+                    print('\033[2K\r\033[0m', end='')
+                    print(scroll_list[i])
+                old_fromTop = fromTop
+                
+            
+            key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
+            if key == 'up' and (fromTop > os.get_terminal_size()[1] - 1):
+                fromTop -= 1
+            elif key == 'down' and (fromTop < len(scroll_list)):
+                fromTop += 1
+            elif key == 'pageup':
+                if (fromTop - (os.get_terminal_size()[1] - 2) > os.get_terminal_size()[1] - 1):
+                    fromTop -= os.get_terminal_size()[1] - 2
+                else:
+                    fromTop = os.get_terminal_size()[1] - 1
+            elif key == 'pagedown':
+                if (fromTop + (os.get_terminal_size()[1] - 2) < len(scroll_list)):
+                    fromTop += os.get_terminal_size()[1] - 2
+                else:
+                    fromTop = len(scroll_list)
+    elif scroll_type == 'old':
         offset = 0
         scroll
         key = ''
