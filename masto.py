@@ -18,12 +18,13 @@ from pydoc import pager
 ##feature toggle
 images = True
 quotes = True
-scrolling = True #Warning, will clog up your terminal scrollback if scroll_type != 'pager'
-scroll_type = 'pager' #if 'pager', uses pydoc pager. otherwise uses my own pager
+scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
+scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
+imgwidthcrunch = "max" #used instead of imgwidth if imgwidth is larger than terminal width
 
 ##create dirs
 if not os.path.exists('./mastopy/info/'):
@@ -102,8 +103,40 @@ def scroll(scroll_list):
         text = ''.join([(x+'\n') for x in text_list])
         text = re.sub(r'\x1b.*m', '', text)
         pager(text)
-    else:
-        ttypager(''.join([(x+'\n') for x in scroll_list]))
+    elif scroll_type == 'ansi':
+        fromTop = os.get_terminal_size()[1] - 1
+        old_fromTop = 0
+        key = ''
+        while not(key in ['enter', 'esc', 's']):
+            if fromTop > old_fromTop :
+                for i in range(old_fromTop, fromTop):
+                    print(scroll_list[i])
+                old_fromTop = fromTop
+            elif fromTop < old_fromTop:
+                print('\033[;H', end='')
+                for i in range((fromTop - (os.get_terminal_size()[1] - 1)), fromTop):
+                    print('\033[2K\r\033[0m', end='')
+                    print(scroll_list[i])
+                old_fromTop = fromTop
+                
+            
+            key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
+            print('\033[2K\r\033[0m', end='')
+            if key == 'up' and (fromTop > os.get_terminal_size()[1] - 1):
+                fromTop -= 1
+            elif key == 'down' and (fromTop < len(scroll_list)):
+                fromTop += 1
+            elif key == 'pageup':
+                if (fromTop - (os.get_terminal_size()[1] - 2) > os.get_terminal_size()[1] - 1):
+                    fromTop -= os.get_terminal_size()[1] - 2
+                else:
+                    fromTop = os.get_terminal_size()[1] - 1
+            elif key == 'pagedown':
+                if (fromTop + (os.get_terminal_size()[1] - 2) < len(scroll_list)):
+                    fromTop += os.get_terminal_size()[1] - 2
+                else:
+                    fromTop = len(scroll_list)
+    elif scroll_type == 'old':
         offset = 0
         scroll
         key = ''
@@ -168,7 +201,10 @@ def display_post(post) :
                     if imgname == 'original':
                         imgname = 'original.png' # just assume PNG idk
                     urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
-                    img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth, ret=True)
+                    if imgwidth > os.get_terminal_size()[0]:
+                        img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidthcrunch, ret=True)
+                    else:
+                        img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth, ret=True)
                     post_text += img_text.split('\n')[:-1]
                     print(img_text)
                 except:
