@@ -14,6 +14,7 @@ import textwrap
 import re
 import img2txt as image
 from pydoc import pager
+import html as htmllibrary
 
 ##feature toggle
 images = True
@@ -63,10 +64,18 @@ class MLStripper(HTMLParser):
         return self.text.getvalue()
 
 def strip_tags(html):
+    out = html
+    
     parser = HTMLParser()
     s = MLStripper()
     s.feed(html.replace("<br>", "\n").replace("<br />", "\n").replace("</p><p>", "\n\n"))
     return s.get_data()
+    
+    #rmovhtml = re.compile('(?i)<(?!br|/br).*?>')
+    #out = re.sub(rmovhtml, '', out)
+    #out = out.replace('</p><p>', '\n\n')
+    #out = htmllibrary.unescape(out)
+    return out
 
 def escape_ansi(line):
     ansi_escape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
@@ -176,7 +185,7 @@ def display_post(post) :
         post_text.append(textwrap.fill('sensitive content labeled "' + post['spoiler_text'], os.get_terminal_size()[0]))
     if show and (post['reblog'] == None):
         print('')
-        print(textwrap.fill(strip_tags(post['content']), os.get_terminal_size()[0]))
+        print(textwrap.fill(strip_tags(post['content']), os.get_terminal_size()[0], replace_whitespace=False))
         post_text.append('')
         post_text.append(textwrap.fill(strip_tags(post['content']), os.get_terminal_size()[0]))
     if show and (len(post['media_attachments']) != 0):
