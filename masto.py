@@ -21,7 +21,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
@@ -132,7 +132,7 @@ def get_post_size(post_list):
     else:
         return len(post_list)
 
-def scroll(scroll_list):
+async def scroll(scroll_list):
     if scroll_type == 'pager':
         text_list = []
         for i in range(len(scroll_list)):
@@ -158,7 +158,7 @@ def scroll(scroll_list):
                 old_fromTop = fromTop
                 
             
-            key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
+            key = await do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
             telprnt('\033[2K\r\033[0m', end='')
             if key == 'up' and (fromTop > get_terminal_size()[1] - 1):
                 fromTop -= 1
@@ -181,7 +181,7 @@ def scroll(scroll_list):
         while not(key in ['enter', 'esc', 's']):
             for i in range(len(scroll_list) - offset):
                 telprnt(scroll_list[i])
-            key = do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
+            key = await do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'])
             if key == 'up' and ((len(scroll_list) - offset) >= get_terminal_size()[1]):
                 offset += 1
             elif key == 'down' and offset > 0:
@@ -197,7 +197,7 @@ def scroll(scroll_list):
                 else:
                     offset = 0
 
-def display_post(post) :
+async def display_post(post) :
     show = True
     account = post['account']
     post_text = [
@@ -210,7 +210,7 @@ def display_post(post) :
         telprnt(post['url'])
         post_text.append(textwrap.fill(post['url'], get_terminal_size()[0]))
     if post['sensitive']:
-        show = yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
+        show = await yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
         post_text.append(textwrap.fill('sensitive content labeled "' + post['spoiler_text'], get_terminal_size()[0]))
     if show and (post['reblog'] == None):
         telprnt('')
@@ -233,7 +233,7 @@ def display_post(post) :
             post_text.append(textwrap.fill(attachment['url'], get_terminal_size()[0]))
             post_text.append(textwrap.fill(str(attachment['description']), get_terminal_size()[0]))
 
-            if images and yn_prompt('show image? (y/n) '):
+            if images and await yn_prompt('show image? (y/n) '):
                 try:
                     imgname = attachment['url'].split('/')[-1]
                     if imgname == 'original':
@@ -257,7 +257,7 @@ def display_post(post) :
         telprnt('Reposted :')
         post_text.append('')
         post_text.append('Reposted:')
-        post_text += display_post(post['reblog'])
+        post_text += await display_post(post['reblog'])
     #telprnt('')
     post_text_final = []
     for i in range(len(post_text)):
@@ -327,48 +327,55 @@ def display_account(account, relationship=None, show_pfp = True, show_banner = T
         telprnt(strip_tags(str(field['value'])) + '\033[0m')
     telprnt('')
 
-get_input_key = []
-def get_input() :
+getinput_key = []
+async def get_input() :
+    global tnread, loop
     #TODO: catch specific error
     if telnet:
-        key = input().lower()
+        key = str(await tnread.read(1)).lower()
         if key == "":
             key = "enter"
         return key
     else:
+        key = input().lower()
+        if key == "":
+            key = "enter"
+        return key
+        '''
         try:
-            global get_input_key
-            get_input_key = []
+            global getinput_key
+            getinput_key = []
             def press(key) :
-                global get_input_key
-                get_input_key.append(key)
+                global getinput_key
+                getinput_key.append(key)
                 stop_listening()
             listen_keyboard(on_press=press)
-            if len(get_input_key) == 0 :
-                get_input_key.append('esc')
-            return(get_input_key[0])
+            if len(getinput_key) == 0 :
+                getinput_key.append('esc')
+            return(getinput_key[0])
         except:
             key = input().lower()
             if key == "":
                 key = "enter"
             return key
+        '''
 
-def yn_prompt(prompt) :
-    key = do_menu(['y','n'], prompt)
+async def yn_prompt(prompt) :
+    key = await do_menu(['y','n'], prompt)
     telprnt(key)
     if key == 'y':
         return True
     else:
         return False
 
-def do_menu(valid_keys, prompt='') : 
+async def do_menu(valid_keys, prompt='') : 
     telprnt('', end='\033[F\n' + prompt)
     while True :
-        key = get_input()
+        key = await get_input()
         if (key in valid_keys):
             return key
 
-def account_menu(account):
+async def account_menu(account):
     relationship = mastodon.account_relationships(account['id'])[0]
     display_account(account, relationship)
     hr(minus=7)
@@ -381,21 +388,21 @@ def account_menu(account):
         else:
             prompt += '<F>ollow, '
     prompt += '<V>iew Posts : '
-    key = do_menu(['enter', 'f', 'v'], prompt)
+    key = await do_menu(['enter', 'f', 'v'], prompt)
     
     if key == 'f':
         if relationship['following']:
             telprnt('Unfollow')
-            if yn_prompt('Are you sure? (y/n) : '):
+            if await yn_prompt('Are you sure? (y/n) : '):
                 mastodon.account_unfollow(account['id'])
         else:
             if account['locked']:
                 telprnt('Send Follow Request')
-                if yn_prompt('Are you sure? (y/n)'):
+                if await yn_prompt('Are you sure? (y/n)'):
                     mastodon.account_follow(account['id'])
             else:
                 telprnt('Follow')
-                if yn_prompt('Are you sure? (y/n)'):
+                if await yn_prompt('Are you sure? (y/n)'):
                     mastodon.account_follow(account['id'])
     elif key == 'v':
         telprnt('View Posts')
@@ -404,7 +411,7 @@ def account_menu(account):
     return None
     
 
-def display_posts(posts_in, section_name='') :
+async def display_posts(posts_in, section_name='') :
     post_num = 0
     posts = posts_in
     post_archive = []
@@ -413,7 +420,7 @@ def display_posts(posts_in, section_name='') :
     while True :
         telprnt('\n\n',end='')
         if show_post:
-            post_text_list = display_post(posts[post_num])
+            post_text_list = await display_post(posts[post_num])
         show_post = True
         hr(minus=7)
         keys = ['s', '?', 'v']
@@ -431,7 +438,7 @@ def display_posts(posts_in, section_name='') :
             prompt += '<N>ext, '
             keys += 'n'
         prompt += '<S>top, <V>iew, <?>help : '
-        key = do_menu(keys, prompt)
+        key = await do_menu(keys, prompt)
         
         if key == 's' : 
             telprnt('Stop')
@@ -439,7 +446,7 @@ def display_posts(posts_in, section_name='') :
         elif key == '?' :
             telprnt(posts[post_num])
             telprnt(strip_tags(posts[post_num]['content']).split('\n')[-1])
-            get_input()
+            await get_input()
         elif key == 'n' :
             telprnt('Next')
             post_num += 1
@@ -470,12 +477,12 @@ def display_posts(posts_in, section_name='') :
                 prompt += '<Q>uoted Post, '
                 keys += 'q'
             prompt += '<A>ccount, Re<F>resh Post : '
-            key = do_menu(keys, prompt)
+            key = await do_menu(keys, prompt)
             
             if key == 'a' :
                 telprnt('View Account')
                 account = posts[post_num]['account']
-                newposts = account_menu(account)
+                newposts = await account_menu(account)
                 if newposts != None:
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
@@ -483,7 +490,7 @@ def display_posts(posts_in, section_name='') :
                     post_num = 0
             elif key == 'p':
                 telprnt('View Post')
-                scroll(post_text_list)
+                await scroll(post_text_list)
                 show_post = False
             elif key == 'b':
                 telprnt('Go Back')
@@ -542,7 +549,7 @@ def display_posts(posts_in, section_name='') :
             else:
                 prompt += '<B>ookmark, '
             prompt += ' Re<F>resh Post, <C>omment : '
-            key = do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
+            key = await do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
             new_status = None
             if key == 'b':
                 if posts[post_num]['bookmarked']:
@@ -576,11 +583,11 @@ def display_posts(posts_in, section_name='') :
                     new_status = None
             elif key == 'c':
                 telprnt('Comment')
-                write_status(in_reply_to = posts[post_num])
+                await write_status(in_reply_to = posts[post_num])
             if not(new_status == None):
                 posts[post_num] = new_status
 
-def write_status(in_reply_to = None):
+async def write_status(in_reply_to = None):
     telprnt('Entering message. Word wrap will give you')
     telprnt('soft linebreaks. Pressing the "enter" key')
     telprnt('will give you a hard linebreak. Press')
@@ -597,7 +604,7 @@ def write_status(in_reply_to = None):
     visibility = None
     in_menu = True
     while in_menu:
-        key = do_menu(['?','a','c','s','p','w','v'], 'Entry command (? for options) -> ')
+        key = await do_menu(['?','a','c','s','p','w','v'], 'Entry command (? for options) -> ')
         if key == '?':
             telprnt('\n' +
                   'One of...\n' +
@@ -609,7 +616,7 @@ def write_status(in_reply_to = None):
                   '   change <V>isibility\n')
         elif key == 'a':
             telprnt('Abort')
-            if yn_prompt('Are you sure? '):
+            if await yn_prompt('Are you sure? '):
                 in_menu = False
         elif key == 'c':
             telprnt('Continue')
@@ -646,7 +653,7 @@ def write_status(in_reply_to = None):
             else:
                 telprnt(visibility)
             telprnt('Change to:\n  <1> Default\n  <2> Public\n  <3> Unlisted\n  <4> Private\n  <5> Direct')
-            key = do_menu(['1','2','3','4','5'],'> ')
+            key = await do_menu(['1','2','3','4','5'],'> ')
             telprnt(key)
             if key == '1':
                 visibility = None
@@ -659,7 +666,7 @@ def write_status(in_reply_to = None):
             if key == '5':
                 visibility = 'direct'
 
-def main_menu():
+async def main_menu():
     hr(minus=7)
     telprnt('Timelines: <H>ome, <L>ocal, <F>ederated')
     telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
@@ -667,23 +674,23 @@ def main_menu():
     telprnt('User:      <M>y Account')#, <N>otifications')
     telprnt('General:   <Q>uit')
     hr(minus=7)
-    key = do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
+    key = await do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
     try:
         if key in ['h','l','f']:
             if key == 'h':
                 telprnt('Home timeline')
                 posts = mastodon.timeline_home(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                await display_posts(posts)
                 return True
             elif key =='l':
                 telprnt('Local timeline')
                 posts = mastodon.timeline_local(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                await display_posts(posts)
                 return True
             elif key =='f':
                 telprnt('Federated timeline')
                 posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                await display_posts(posts)
                 return True
         elif key in ['v','b','c']:
             if key == 'v':
@@ -691,16 +698,16 @@ def main_menu():
                 id = input('')
                 if (id != ''):
                     post = [mastodon.status(id)]
-                    display_posts(post)
+                    await display_posts(post)
                 return True
             elif key =='b':
                 telprnt('Bookmarks')
                 posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                await display_posts(posts)
                 return True
             elif key =='c':
                 telprnt('Post')
-                write_status()
+                await write_status()
                 return True
         elif key in ['s','t']:
             if key == 's':
@@ -710,7 +717,7 @@ def main_menu():
                     posts = mastodon.search(search_term, result_type='statuses')
                     posts = posts['statuses']
                     if len(posts) > 0:
-                        display_posts(posts)
+                        await display_posts(posts)
                     else:
                         telprnt('No Search Results')
                 return True
@@ -719,7 +726,7 @@ def main_menu():
                 hashtag = input('')
                 if (hashtag != ''):
                     posts = mastodon.timeline_hashtag(hashtag, limit=int(input("how many posts to load? ")))
-                    display_posts(posts)
+                    await display_posts(posts)
                 return True
         elif key in ['m']:#,'n']:
             if key == 'm':
@@ -730,7 +737,7 @@ def main_menu():
         #    elif key == 'n':
         #        telprnt('Notifications')
         #        posts = mastodon.notifications(types='status')
-        #        display_posts(posts)
+        #        await display_posts(posts)
         #        return True
         elif key == 'q':
             telprnt('Quit')
@@ -792,13 +799,16 @@ logo = """
 tnread = ''
 tnwrite = ''
 mastodon = ''
+loop = ''
 if telnet:
     async def shell(reader, writer):
-        global tnread, tnwrite, mastodon
+        global tnread, tnwrite, mastodon, loop
         tnread = reader
         tnwrite = writer
         name = 'default' #default name
 
+        telprnt(logo)
+        
         if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
             if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
                 app_create(name)
@@ -807,8 +817,9 @@ if telnet:
         mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
 
         while True:
-            if not(main_menu()):
+            if not(await main_menu()):
                 break
+        writer.close()
     
     loop = asyncio.get_event_loop()
     coro = telnetlib3.create_server(port=6023, shell=shell)
@@ -824,7 +835,7 @@ else:
         user_login(name)
 
     mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
-
+    loop = asyncio.get_event_loop()
     while True:
-        if not(main_menu()):
+        if not(loop.run_until_complete(main_menu())):
             break
