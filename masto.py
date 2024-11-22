@@ -15,6 +15,7 @@ import re
 import img2txt as image
 from pydoc import pager
 import asyncio, telnetlib3
+import traceback
 
 ##feature toggle
 images = True
@@ -24,7 +25,7 @@ scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I 
 telnet = True
 
 ##img features
-imgcolour = "256" #best : "colour", "256" for some terminals
+imgcolour = "bw" #best : "colour", "256" for some terminals
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
 imgwidthcrunch = "max" #used instead of imgwidth if imgwidth is larger than terminal width
 
@@ -849,10 +850,10 @@ if telnet:
             while True:
                 if not(await main_menu()):
                     break
-        except:
+        except Exception:
+            print(traceback.format_exc())
             writer.write('\r\nprogram error, disconnecting.\r\n')
             writer.close()
-            raise
         writer.close()
     
     loop = asyncio.get_event_loop()
