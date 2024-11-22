@@ -21,7 +21,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
@@ -38,19 +38,42 @@ if not os.path.exists('./mastopy/resources/images'):
 if not os.path.exists('./mastopy/resources/pfps'):
     os.makedirs('./mastopy/resources/pfps')
     
-def app_create(name) :
+async def app_create(name) :
     Mastodon.create_app(
         'python client',
-        api_base_url = input('Server URL (with https://) : '),
+        api_base_url = await telinput('Server URL (with https://) : '),
         to_file = './mastopy/info/' + name + '_clientcred.secret'
     )
-def user_login(name) :
+async def user_login(name) :
     mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
     mastodon.log_in(
-        input('Email Address : '),
+        await telinput('Email Address : '),
         getpass('Password : '),
         to_file = './mastopy/info/' + name +'_usercred.secret'
     )
+
+#function for telnet compatibility
+async def telinput(prompt=""):
+    global tnread, tnwrite
+    telprnt(prompt, end='')
+    if telnet:
+        out = ''
+        key = ''
+        while not(key in ['\r', '\n']):
+            if key == backspace:
+                out = out[:-1]
+            else:
+                out += key
+            tnwrite.write(''.join(i for i in key if ord(i)<128))
+            key = str(await tnread.read(1))
+        if out == "":
+            out = "enter"
+        return out
+    else:
+        key = (input())
+        if key == "":
+            key = "enter"
+        return key
 
 #function for telnet compatibility
 def get_terminal_size():
@@ -76,10 +99,10 @@ def telprnt(*args, end='\n'):
             realend = realend + '\r\n'
         for i in range(len(realargs)):
             if i == len(realargs) - 1:
-                tnwrite.write(realargs[i])
-                tnwrite.write(realend)
+                tnwrite.write(''.join(r for r in realargs[i] if ord(r)<128))
+                tnwrite.write(''.join(r for r in realend if ord(r)<128))
             else:
-                tnwrite.write(realargs[i])
+                tnwrite.write(''.join(r for r in realargs[i] if ord(r)<128))
                 tnwrite.write(' ')
     else:
         for i in range(len(args)):
@@ -333,11 +356,11 @@ async def get_input() :
     #TODO: catch specific error
     if telnet:
         key = str(await tnread.read(1)).lower()
-        if key == "":
+        if key in ['\n', '\r', '']:
             key = "enter"
         return key
     else:
-        key = input().lower()
+        key = (await telinput()).lower()
         if key == "":
             key = "enter"
         return key
@@ -354,7 +377,7 @@ async def get_input() :
                 getinput_key.append('esc')
             return(getinput_key[0])
         except:
-            key = input().lower()
+            key = (await telinput()).lower()
             if key == "":
                 key = "enter"
             return key
@@ -406,7 +429,7 @@ async def account_menu(account):
                     mastodon.account_follow(account['id'])
     elif key == 'v':
         telprnt('View Posts')
-        posts = mastodon.account_statuses(account['id'], limit=int(input("how many posts to load? ")))
+        posts = mastodon.account_statuses(account['id'], limit=int(await telinput("how many posts to load? ")))
         return posts
     return None
     
@@ -595,7 +618,7 @@ async def write_status(in_reply_to = None):
     postList = []
     lastline = 'tmp'
     while lastline != '':
-        lastline = input()
+        lastline = (await telinput())
         if lastline != '':
             postList.append(lastline)
     post = ''.join(('\n' + line) for line in postList).lstrip('\n')
@@ -623,7 +646,7 @@ async def write_status(in_reply_to = None):
             postList = [post]
             lastline = 'tmp'
             while lastline != '':
-                lastline = input()
+                lastline = (await telinput())
                 if lastline != '':
                     postList.append(lastline)
             post = ''.join(('\n' + line) for line in postList).lstrip('\n')
@@ -640,7 +663,7 @@ async def write_status(in_reply_to = None):
         elif key == 'w':
             telprnt('Add CW')
             telprnt('Current CW is: ' + str(cw))
-            cw = input('Content warning (press enter for none) : ')
+            cw = await telinput('Content warning (press enter for none) : ')
             if cw == '':
                 cw = None
             cw_string = '   change content <W>arning\n'
@@ -679,30 +702,30 @@ async def main_menu():
         if key in ['h','l','f']:
             if key == 'h':
                 telprnt('Home timeline')
-                posts = mastodon.timeline_home(limit=int(input("how many posts to load? ")))
+                posts = mastodon.timeline_home(limit=int(await telinput("how many posts to load? ")))
                 await display_posts(posts)
                 return True
             elif key =='l':
                 telprnt('Local timeline')
-                posts = mastodon.timeline_local(limit=int(input("how many posts to load? ")))
+                posts = mastodon.timeline_local(limit=int(await telinput("how many posts to load? ")))
                 await display_posts(posts)
                 return True
             elif key =='f':
                 telprnt('Federated timeline')
-                posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
+                posts = mastodon.timeline_public(limit=int(await telinput("how many posts to load? ")))
                 await display_posts(posts)
                 return True
         elif key in ['v','b','c']:
             if key == 'v':
                 telprnt('View post ID: ',end='')
-                id = input('')
+                id = await telinput('')
                 if (id != ''):
                     post = [mastodon.status(id)]
                     await display_posts(post)
                 return True
             elif key =='b':
                 telprnt('Bookmarks')
-                posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
+                posts = mastodon.bookmarks(limit=int(await telinput("how many posts to load? ")))
                 await display_posts(posts)
                 return True
             elif key =='c':
@@ -712,7 +735,7 @@ async def main_menu():
         elif key in ['s','t']:
             if key == 's':
                 telprnt('Search: ',end='')
-                search_term = input('')
+                search_term = await telinput('')
                 if (search_term != ''):
                     posts = mastodon.search(search_term, result_type='statuses')
                     posts = posts['statuses']
@@ -723,9 +746,9 @@ async def main_menu():
                 return True
             elif key == 't':
                 telprnt('View posts by Hashtag: ',end='')
-                hashtag = input('')
+                hashtag = await telinput('')
                 if (hashtag != ''):
-                    posts = mastodon.timeline_hashtag(hashtag, limit=int(input("how many posts to load? ")))
+                    posts = mastodon.timeline_hashtag(hashtag, limit=int(await telinput("how many posts to load? ")))
                     await display_posts(posts)
                 return True
         elif key in ['m']:#,'n']:
@@ -800,25 +823,36 @@ tnread = ''
 tnwrite = ''
 mastodon = ''
 loop = ''
+backspace = ''
 if telnet:
     async def shell(reader, writer):
-        global tnread, tnwrite, mastodon, loop
-        tnread = reader
-        tnwrite = writer
-        name = 'default' #default name
+        print('connected')
+        try:
+            global tnread, tnwrite, mastodon, loop, backspace
+            tnread = reader
+            tnwrite = writer
+            name = 'default' #default name
 
-        telprnt(logo)
-        
-        if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
-            if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-                app_create(name)
-            user_login(name)
+            telprnt(logo)
+            
+            tnwrite.write('Press your backspace key ')
+            backspace = await get_input()
+            telprnt("")
 
-        mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+            if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
+                if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
+                    await app_create(name)
+                await user_login(name)
 
-        while True:
-            if not(await main_menu()):
-                break
+            mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+
+            while True:
+                if not(await main_menu()):
+                    break
+        except:
+            writer.write('\r\nprogram error, disconnecting.\r\n')
+            writer.close()
+            raise
         writer.close()
     
     loop = asyncio.get_event_loop()
@@ -831,8 +865,8 @@ else:
 
     if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
         if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-            app_create(name)
-        user_login(name)
+            loop.run_until_complete(app_create(name))
+        loop.run_until_complete(user_login(name))
 
     mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
     loop = asyncio.get_event_loop()
