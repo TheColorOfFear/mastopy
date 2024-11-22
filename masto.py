@@ -703,18 +703,24 @@ async def main_menu():
         if key in ['h','l','f']:
             if key == 'h':
                 telprnt('Home timeline')
-                posts = mastodon.timeline_home(limit=int(await telinput("how many posts to load? ")))
-                await display_posts(posts)
+                howmany = await telinput("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_home(limit=int(howmany))
+                    await display_posts(posts)
                 return True
             elif key =='l':
                 telprnt('Local timeline')
-                posts = mastodon.timeline_local(limit=int(await telinput("how many posts to load? ")))
-                await display_posts(posts)
+                howmany = await telinput("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_local(limit=int(howmany))
+                    await display_posts(posts)
                 return True
             elif key =='f':
-                telprnt('Federated timeline')
-                posts = mastodon.timeline_public(limit=int(await telinput("how many posts to load? ")))
-                await display_posts(posts)
+                print('Federated timeline')
+                howmany = await telinput("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_public(limit=int(howmany))
+                    await display_posts(posts)
                 return True
         elif key in ['v','b','c']:
             if key == 'v':
@@ -726,8 +732,10 @@ async def main_menu():
                 return True
             elif key =='b':
                 telprnt('Bookmarks')
-                posts = mastodon.bookmarks(limit=int(await telinput("how many posts to load? ")))
-                await display_posts(posts)
+                howmany = await telinput("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.bookmarks(limit=int(howmany))
+                    await display_posts(posts)
                 return True
             elif key =='c':
                 telprnt('Post')
@@ -749,8 +757,10 @@ async def main_menu():
                 telprnt('View posts by Hashtag: ',end='')
                 hashtag = await telinput('')
                 if (hashtag != ''):
-                    posts = mastodon.timeline_hashtag(hashtag, limit=int(await telinput("how many posts to load? ")))
-                    await display_posts(posts)
+                    howmany = await telinput("how many posts to load? ")
+                    if howmany.isdigit():
+                        posts = mastodon.timeline_hashtag(hashtag, limit=int(howmany))
+                        await display_posts(posts)
                 return True
         elif key in ['m']:#,'n']:
             if key == 'm':
