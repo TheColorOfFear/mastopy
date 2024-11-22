@@ -628,18 +628,24 @@ def main_menu():
         if key in ['h','l','f']:
             if key == 'h':
                 print('Home timeline')
-                posts = mastodon.timeline_home(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                howmany = input("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_home(limit=int(howmany))
+                    display_posts(posts)
                 return True
             elif key =='l':
                 print('Local timeline')
-                posts = mastodon.timeline_local(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                howmany = input("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_local(limit=int(howmany))
+                    display_posts(posts)
                 return True
             elif key =='f':
                 print('Federated timeline')
-                posts = mastodon.timeline_public(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                howmany = input("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.timeline_public(limit=int(howmany))
+                    display_posts(posts)
                 return True
         elif key in ['v','b','c']:
             if key == 'v':
@@ -651,8 +657,10 @@ def main_menu():
                 return True
             elif key =='b':
                 print('Bookmarks')
-                posts = mastodon.bookmarks(limit=int(input("how many posts to load? ")))
-                display_posts(posts)
+                howmany = input("how many posts to load? ")
+                if howmany.isdigit():
+                    posts = mastodon.bookmarks(limit=int(howmany))
+                    display_posts(posts)
                 return True
             elif key =='c':
                 print('Post')
@@ -674,8 +682,10 @@ def main_menu():
                 print('View posts by Hashtag: ',end='')
                 hashtag = input('')
                 if (hashtag != ''):
-                    posts = mastodon.timeline_hashtag(hashtag, limit=int(input("how many posts to load? ")))
-                    display_posts(posts)
+                    howmany = input("how many posts to load? ")
+                    if howmany.isdigit():
+                        posts = mastodon.timeline_hashtag(hashtag, limit=int(howmany))
+                        display_posts(posts)
                 return True
         elif key in ['m']:#,'n']:
             if key == 'm':
