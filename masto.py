@@ -67,13 +67,9 @@ async def telinput(prompt=""):
                 out += key
             tnwrite.write(''.join(i for i in key if ord(i)<128))
             key = str(await tnread.read(1))
-        if out == "":
-            out = "enter"
         return out
     else:
-        key = (input())
-        if key == "":
-            key = "enter"
+        key = input()
         return key
 
 #function for telnet compatibility
@@ -612,10 +608,18 @@ async def display_posts(posts_in, section_name='') :
                 posts[post_num] = new_status
 
 async def write_status(in_reply_to = None):
-    telprnt('Entering message. Word wrap will give you')
-    telprnt('soft linebreaks. Pressing the "enter" key')
-    telprnt('will give you a hard linebreak. Press')
-    telprnt('"enter" twice when finished.\n')
+    if telnet:
+        telprnt('Entering message. Word wrap will give you')
+        telprnt('soft linebreaks. Pressing the "enter" key')
+        telprnt('will give you a hard linebreak and open  ')
+        telprnt('the menu, from which you can press "c" to')
+        telprnt('continue writing the message.            ')
+        telprnt('press "enter" and then "s" when finished.\n')
+    else:
+        telprnt('Entering message. Word wrap will give you')
+        telprnt('soft linebreaks. Pressing the "enter" key')
+        telprnt('will give you a hard linebreak. Press')
+        telprnt('"enter" twice when finished.\n')
     postList = []
     lastline = 'tmp'
     while lastline != '':
@@ -628,7 +632,7 @@ async def write_status(in_reply_to = None):
     visibility = None
     in_menu = True
     while in_menu:
-        key = await do_menu(['?','a','c','s','p','w','v'], 'Entry command (? for options) -> ')
+        key = await do_menu(['?','a','c','s','p','w','v'], '\nEntry command (? for options) -> ')
         if key == '?':
             telprnt('\n' +
                   'One of...\n' +
@@ -865,9 +869,10 @@ if telnet:
             writer.write('\r\nprogram error, disconnecting.\r\n')
             writer.close()
         writer.close()
+        print('disconnected')
     
     loop = asyncio.get_event_loop()
-    coro = telnetlib3.create_server(port=6023, shell=shell)
+    coro = telnetlib3.create_server(port=6023, shell=shell, timeout=False)
     server = loop.run_until_complete(coro)
     loop.run_until_complete(server.wait_closed()) 
 else:
