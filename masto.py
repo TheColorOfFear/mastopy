@@ -20,7 +20,8 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-forcelogin = False
+default_account = 'default' #set to None for the multi-user menu
+forcelogin = False #set to True for a forced login every time
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
@@ -37,63 +38,90 @@ if not os.path.exists('./mastopy/resources/images'):
 if not os.path.exists('./mastopy/resources/pfps'):
     os.makedirs('./mastopy/resources/pfps')
     
-def app_create(name) :
-    Mastodon.create_app(
-        'python client',
-        api_base_url = input('Server URL : '),
-        to_file = './mastopy/info/' + name + '_clientcred.secret'
-    )
+def app_create(name, api_base_url = None) :
+    if name == None:
+        return Mastodon.create_app(
+            'python client',
+            api_base_url = api_base_url
+        )
+    else:
+        Mastodon.create_app(
+            'python client',
+            api_base_url = input('Server URL : '),
+            to_file = './mastopy/info/' + name + '_clientcred.secret'
+        )
 def user_login(name) :
-    mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
-    mastodon.log_in(
-        input('Email Address : '),
-        getpass('Password : '),
-        to_file = './mastopy/info/' + name +'_usercred.secret'
-    )
+    if name == None:
+        api_base_url = input('Server URL : ')
+        appinfo = app_create(None, api_base_url)
+        mastodon = Mastodon(api_base_url = api_base_url, client_id = appinfo[0], client_secret = appinfo[1])
+        mastodon.log_in(
+            input('Email Address : '),
+            getpass('Password : '),
+            
+        )
+        return mastodon
+    else:
+        mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
+        mastodon.log_in(
+            input('Email Address : '),
+            getpass('Password : '),
+            to_file = './mastopy/info/' + name +'_usercred.secret'
+        )
 
 
 def usermenu():
-    options = [
-        '<Q>uit\n'
-        '<N>ew User'
-    ]
-    validkeys = ['q','n','1']
+    if forcelogin:
+       return user_login(None)
+    else:
+        if default_account == None:
+            options = [
+                '<Q>uit\n'
+                '<N>ew User'
+            ]
+            validkeys = ['q','n','1']
 
-    if (not(exists('./mastopy/info/userlist'))):
-        with open('./mastopy/info/userlist', "wt") as userlist:
-            userlist.write("")
-    else:
-        with open('./mastopy/info/userlist') as userlist:
-            userlisttxt = userlist.read()
-        userlist = userlisttxt.splitlines()
-        for i in range(len(userlist)):
-            user = str(str((i + 1) % 10) + ".) " + userlist[i])
-            options.append(user)
-            validkeys.append(str((i + 1) % 10))
-    output = do_menu(validkeys, '\n'.join(options) + '\n>')
-    print(" " + output)
-    if output.lower() == 'n':
-        name = input("New User Name? ")
-        if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
-            if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-                app_create(name)
-            user_login(name)
-        with open('./mastopy/info/userlist') as userlist:
-            listcontent = userlist.read()
-        with open('./mastopy/info/userlist', "wt") as userlist:
-            userlist.write(listcontent + name + '\n')
-        return usermenu()
-    elif output.isdigit():
-        if output == "0":
-            name = options[11][4:]
+            if (not(exists('./mastopy/info/userlist'))):
+                with open('./mastopy/info/userlist', "wt") as userlist:
+                    userlist.write("")
+            else:
+                with open('./mastopy/info/userlist') as userlist:
+                    userlisttxt = userlist.read()
+                userlist = userlisttxt.splitlines()
+                for i in range(len(userlist)):
+                    user = str(str((i + 1) % 10) + ".) " + userlist[i])
+                    options.append(user)
+                    validkeys.append(str((i + 1) % 10))
+            output = do_menu(validkeys, '\n'.join(options) + '\n>')
+            print(" " + output)
+            if output.lower() == 'n':
+                name = input("New User Name? ")
+                if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
+                    if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
+                        app_create(name)
+                    user_login(name)
+                with open('./mastopy/info/userlist') as userlist:
+                    listcontent = userlist.read()
+                with open('./mastopy/info/userlist', "wt") as userlist:
+                    userlist.write(listcontent + name + '\n')
+                return usermenu()
+            elif output.isdigit():
+                if output == "0":
+                    name = options[11][4:]
+                else:
+                    name = options[int(output) - 2][4:]
+                return Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+            elif output.lower() == "q":
+                return None
+            else:
+                print("Invalid Option")
+                return usermenu()
         else:
-            name = options[int(output) - 2][4:]
-        return Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
-    elif output.lower() == "q":
-        return None
-    else:
-        print("Invalid Option")
-        return usermenu()
+            if (not(exists('./mastopy/info/' + default_account + '_usercred.secret'))):
+                if (not(exists('./mastopy/info/' + default_account + '_clientcred.secret'))):
+                    app_create(default_account)
+                user_login(default_account)
+            return Mastodon(access_token = './mastopy/info/' + default_account + '_usercred.secret')
 
 class MLStripper(HTMLParser):
     def __init__(self):
