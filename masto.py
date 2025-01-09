@@ -21,7 +21,11 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
+
+##account settings
+default_account = 'default' #set to None for the multi-user menu
+forcelogin = True #set to True for a forced login every time
 
 ##img features
 imgcolour = "bw" #best : "colour", "256" for some terminals
@@ -37,23 +41,103 @@ if not os.path.exists('./mastopy/resources/images'):
     os.makedirs('./mastopy/resources/images')
 if not os.path.exists('./mastopy/resources/pfps'):
     os.makedirs('./mastopy/resources/pfps')
-    
 
 class mastopy:
-    async def app_create(self, name) :
-        Mastodon.create_app(
-            'python client',
-            api_base_url = await self.telinput('Server URL (with https://) : '),
-            to_file = './mastopy/info/' + name + '_clientcred.secret'
-        )
+    async def app_create(self, name, api_base_url = None) :
+        if name == None:
+            return Mastodon.create_app(
+                'python client',
+                api_base_url = api_base_url
+            )
+        else:
+            api_base_url = await self.telinput('Server URL : ')
+            self.telprnt("")
+            Mastodon.create_app(
+                'python client',
+                api_base_url = api_base_url,
+                to_file = './mastopy/info/' + name + '_clientcred.secret'
+            )
     async def user_login(self, name) :
-        mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
-        mastodon.log_in(
-            await self.telinput('Email Address : '),
-            getpass('Password : '),
-            to_file = './mastopy/info/' + name +'_usercred.secret'
-        )
+        if name == None:
+            api_base_url = await self.telinput('Server URL : ')
+            self.telprnt("")
+            appinfo = await self.app_create(None, api_base_url)
+            mastodon = Mastodon(api_base_url = api_base_url, client_id = appinfo[0], client_secret = appinfo[1])
+            email = await self.telinput('Email Address : ')
+            self.telprnt("")
+            password = await self.telgetpass('Password : ')
+            self.telprnt("")
+            mastodon.log_in(
+                email,
+                password,
+            )
+            return mastodon
+        else:
+            mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
+            email = await self.telinput('Email Address : ')
+            self.telprnt("")
+            password = await self.telgetpass('Password : ')
+            self.telprnt("")
+            mastodon.log_in(
+                email,
+                password,
+                to_file = './mastopy/info/' + name +'_usercred.secret'
+            )
 
+    async def usermenu(self):
+        global forcelogin, default_account
+        if forcelogin:
+            return await self.user_login(None)
+        else:
+            if default_account == None:
+                options = [
+                    '<Q>uit\n'
+                    '<N>ew User'
+                ]
+                validkeys = ['q','n','1']
+
+                if (not(exists('./mastopy/info/userlist'))):
+                    with open('./mastopy/info/userlist', "wt") as userlist:
+                        userlist.write("")
+                else:
+                    with open('./mastopy/info/userlist') as userlist:
+                        userlisttxt = userlist.read()
+                    userlist = userlisttxt.splitlines()
+                    for i in range(len(userlist)):
+                        user = str(str((i + 1) % 10) + ".) " + userlist[i])
+                        options.append(user)
+                        validkeys.append(str((i + 1) % 10))
+                output = await self.do_menu(validkeys, '\n'.join(options) + '\n> ')
+                
+                if output.lower() == 'n':
+                    name = input("New User Name? ")
+                    if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
+                        if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
+                            await self.app_create(name)
+                        await self.user_login(name)
+                    with open('./mastopy/info/userlist') as userlist:
+                        listcontent = userlist.read()
+                    with open('./mastopy/info/userlist', "wt") as userlist:
+                        userlist.write(listcontent + name + '\n')
+                    return await self.usermenu()
+                elif output.isdigit():
+                    if output == "0":
+                        name = options[11][4:]
+                    else:
+                        name = options[int(output) - 2][4:]
+                    return Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+                elif output.lower() == "q":
+                    return None
+                else:
+                    self.telprnt("Invalid Option")
+                    return await self.usermenu()
+            else:
+                if (not(exists('./mastopy/info/' + default_account + '_usercred.secret'))):
+                    if (not(exists('./mastopy/info/' + default_account + '_clientcred.secret'))):
+                        await self.app_create(default_account)
+                    await self.user_login(default_account)
+                return Mastodon(access_token = './mastopy/info/' + default_account + '_usercred.secret')
+    
     #function for telnet compatibility
     async def telinput(self, prompt=""):
         global telnet
@@ -71,6 +155,25 @@ class mastopy:
             return out
         else:
             key = input()
+            return key
+    
+    async def telgetpass(self, prompt=""):
+        global telnet
+        if telnet:
+            self.telprnt(prompt, end='')
+            out = ''
+            key = ''
+            while not(key in ['\r', '\n']):
+                if key == self.backspace:
+                    out = out[:-1]
+                else:
+                    out += key
+                #self.tnwrite.write(''.join(i for i in key if ord(i)<128)) #just don't write the text back, obvs
+                key = str(await self.tnread.read(1))
+            self.telprnt('')
+            return out
+        else:
+            key = getpass(prompt)
             return key
 
     #function for telnet compatibility
@@ -835,17 +938,13 @@ class mastopy:
             self.backspace = await self.get_input()
             self.telprnt("")
 
-        if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
-            if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-                await self.app_create(name)
-            await self.user_login(name)
+        self.mastodon = await self.usermenu()
 
-        self.mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
-
-        while True:
+        while True and not(self.mastodon == None):
             if not(await self.main_menu()):
                 break
-        self.tnwrite.close()
+        if telnet:
+            self.tnwrite.close()
 
 logo = """
 .  .._. _____ _ ._  _ .  .\n|\\/||_|/__ | / \\| \\/ \\|\\ |\n|  || |__/ | \\_/|_/\\_/| \\|\n
