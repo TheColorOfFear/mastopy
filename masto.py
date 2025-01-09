@@ -370,22 +370,21 @@ class mastopy:
             return key
             '''
             try:
-                global getinput_key
-                getinput_key = []
-                def press(key) :
-                    global getinput_key
+                self.getinput_key = []
+                def press(getinput_key, key) :
                     getinput_key.append(key)
                     stop_listening()
-                listen_keyboard(on_press=press)
-                if len(getinput_key) == 0 :
-                    getinput_key.append('esc')
-                return(getinput_key[0])
+                await listen_keyboard(on_press=press) #augh you're KILLIN me shhkeyboard
+                if len(self.getinput_key) == 0 :
+                    self.getinput_key.append('esc')
+                return(self.getinput_key[0])
             except:
-                key = (await telinput()).lower()
+                key = (await self.telinput()).lower()
                 if key == "":
                     key = "enter"
                 return key
             '''
+            
 
     async def yn_prompt(self, prompt) :
         key = await self.do_menu(['y','n'], prompt)
