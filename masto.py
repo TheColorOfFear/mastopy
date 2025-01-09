@@ -142,6 +142,7 @@ class mastopy:
         self.telprnt('')
 
     def get_post_size(self, post_list):
+        global scroll_type
         if scroll_type == 'pager':
             text_list = []
             for i in range(len(post_list)):
@@ -155,6 +156,7 @@ class mastopy:
             return len(post_list)
 
     async def scroll(self, scroll_list):
+        global scroll_type
         if scroll_type == 'pager':
             text_list = []
             for i in range(len(scroll_list)):
@@ -220,6 +222,7 @@ class mastopy:
                         offset = 0
 
     async def display_post(self, post) :
+        global images, imgcolour, imgwidth, imgwidthcrunch
         show = True
         account = post['account']
         post_text = [
@@ -287,6 +290,7 @@ class mastopy:
         return(post_text_final)
 
     def display_pfp(self, account, request='avatar_static', width = 10, deco = True):
+        global imgcolour
         urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
         pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=imgcolour).split('\n')
         out = ''
@@ -309,6 +313,7 @@ class mastopy:
         return out
 
     def display_account(self, account, relationship=None, show_pfp = True, show_banner = True):
+        global images
         if relationship == None:
             relation = self.mastodon.account_relationships(account['id'])[0]
         else:
@@ -434,6 +439,7 @@ class mastopy:
         
 
     async def display_posts(self, posts_in, section_name='') :
+        global quotes, scrolling
         post_num = 0
         posts = posts_in
         post_archive = []
