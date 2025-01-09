@@ -20,6 +20,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
+forcelogin = False
 
 ##img features
 imgcolour = "256" #best : "colour", "256" for some terminals
@@ -39,7 +40,7 @@ if not os.path.exists('./mastopy/resources/pfps'):
 def app_create(name) :
     Mastodon.create_app(
         'python client',
-        api_base_url = input('Server URL (with https://) : '),
+        api_base_url = input('Server URL : '),
         to_file = './mastopy/info/' + name + '_clientcred.secret'
     )
 def user_login(name) :
@@ -49,6 +50,50 @@ def user_login(name) :
         getpass('Password : '),
         to_file = './mastopy/info/' + name +'_usercred.secret'
     )
+
+
+def usermenu():
+    options = [
+        '<Q>uit\n'
+        '<N>ew User'
+    ]
+    validkeys = ['q','n','1']
+
+    if (not(exists('./mastopy/info/userlist'))):
+        with open('./mastopy/info/userlist', "wt") as userlist:
+            userlist.write("")
+    else:
+        with open('./mastopy/info/userlist') as userlist:
+            userlisttxt = userlist.read()
+        userlist = userlisttxt.splitlines()
+        for i in range(len(userlist)):
+            user = str(str((i + 1) % 10) + ".) " + userlist[i])
+            options.append(user)
+            validkeys.append(str((i + 1) % 10))
+    output = do_menu(validkeys, '\n'.join(options) + '\n>')
+    print(" " + output)
+    if output.lower() == 'n':
+        name = input("New User Name? ")
+        if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
+            if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
+                app_create(name)
+            user_login(name)
+        with open('./mastopy/info/userlist') as userlist:
+            listcontent = userlist.read()
+        with open('./mastopy/info/userlist', "wt") as userlist:
+            userlist.write(listcontent + name + '\n')
+        return usermenu()
+    elif output.isdigit():
+        if output == "0":
+            name = options[11][4:]
+        else:
+            name = options[int(output) - 2][4:]
+        return Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+    elif output.lower() == "q":
+        return None
+    else:
+        print("Invalid Option")
+        return usermenu()
 
 class MLStripper(HTMLParser):
     def __init__(self):
@@ -760,15 +805,17 @@ logo = """
 
 print(logo)
 
-name = 'default' #default name
+mastodon = usermenu()
 
-if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
-    if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-        app_create(name)
-    user_login(name)
+#name = 'default' #default name
 
-mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
+#if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
+#    if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
+#        app_create(name)
+#    user_login(name)
+if not(mastodon == None):
+    #mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
 
-while True:
-    if not(main_menu()):
-        break
+    while True:
+        if not(main_menu()):
+            break
