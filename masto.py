@@ -286,7 +286,42 @@ def display_post(post) :
                 post_text.append('\033[0m')
     if show and (post['poll'] != None):
         print('\nPost has poll.')
+        post_text.append('')
         post_text.append('Post has poll')
+        votetotal = post['poll']['votes_count']
+        voted = post['poll']['voted']
+        for i in range(len(post['poll']['options'])):
+            if voted or post['poll']['expired']:
+                if i in post['poll']['own_votes']:
+                    print('> ', end="")
+                    itemcontent = "> "
+                else:
+                    print('- ', end="")
+                    itemcontent = "- "
+                votescount = post['poll']['options'][i]['votes_count']
+                if votescount == 0:
+                    votespercent = 0
+                else:
+                    votespercent = int(round((votescount / votetotal) * 100, 0))
+                print(str(votespercent).ljust(3, " ") + "% ", end='')
+                itemcontent += str(votespercent).ljust(3, " ") + "% "
+            else:
+                print('- ', end="")
+                itemcontent = "- "
+            print(post['poll']['options'][i]['title'])
+            itemcontent += post['poll']['options'][i]['title']
+            post_text.append(itemcontent)
+        print("Total votes : " + str(votetotal))
+        post_text.append("Total votes : " + str(votetotal))
+        if voted:
+            print("You've voted in this poll.")
+            post_text.append("You've voted in this poll.")
+        if post['poll']['expired']:
+            print("Poll is closed.")
+            post_text.append("Poll is closed.")
+        else:
+            print("Poll closes at " + str(post['poll']['expires_at']))
+            post_text.append("Poll closes at " + str(post['poll']['expires_at']))
     if (post['reblog']):
         print('')
         print('Reposted :')
@@ -558,6 +593,7 @@ def display_posts(posts_in, section_name='') :
             print('Interact')
             prompt = ''
             #prompt = '<L>ike, <R>epost, <B>ookmark :'
+            valid_keys = ['enter', 'l', 'r', 'b', 'f', 'c']
             if posts[post_num]['favourited']:
                 prompt += 'Un<L>ike, '
             else:
@@ -570,8 +606,12 @@ def display_posts(posts_in, section_name='') :
                 prompt += 'Un<B>ookmark, '
             else:
                 prompt += '<B>ookmark, '
+            if posts[post_num]['poll'] != None:
+                if not(posts[post_num]['poll']['expired'] or posts[post_num]['poll']['voted']):
+                    prompt += '<P>oll, '
+                    valid_keys.append('p')
             prompt += ' Re<F>resh Post, <C>omment : '
-            key = do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
+            key = do_menu(valid_keys, prompt)
             new_status = None
             if key == 'b':
                 if posts[post_num]['bookmarked']:
@@ -580,6 +620,24 @@ def display_posts(posts_in, section_name='') :
                 else:
                     print('Bookmark Post')
                     new_status = mastodon.status_bookmark(posts[post_num]['id'])
+            elif key == 'p':
+                print('Vote in Poll')
+                options = []
+                for i in range(len(posts[post_num]['poll']['options'])):
+                    options.append(str(i + 1)) # might break things if you can make polls with more than 9 options but I don't think you can?
+                    print(str(i + 1) + '.) ', end='')
+                    print(posts[post_num]['poll']['options'][i]['title'])
+                key = do_menu(options, '> ')
+                print(key)
+                new_status = posts[post_num]
+                pollresponse = mastodon.poll_vote(posts[post_num]['poll']['id'], (int(key) - 1))
+                print(pollresponse) # for some reason this is always None as far as I can tell so as a quick fix, just refresh the page
+                #posts[post_num]['poll'] = pollresponse # don't do what the API says I should be able to do, instead 
+                try:
+                    new_status = mastodon.status(posts[post_num]['id'])
+                except mastodonpy.MastodonNetworkError:
+                    #print('Network Error, Couldn\'t refresh post.')
+                    new_status = None
             elif key == 'l':
                 if posts[post_num]['favourited']:
                     print('Remove Like')
