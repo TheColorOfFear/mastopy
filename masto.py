@@ -25,7 +25,7 @@ telnet = True
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
-forcelogin = True #set to True for a forced login every time
+forcelogin = False #set to True for a forced login every time
 
 ##img features
 imgcolour = "bw" #best : "colour", "256" for some terminals
@@ -1007,12 +1007,16 @@ class mastopy:
 logo = """
 .  .._. _____ _ ._  _ .  .\n|\\/||_|/__ | / \\| \\/ \\|\\ |\n|  || |__/ | \\_/|_/\\_/| \\|\n
 """
+globalid = 0
 if telnet:
     async def shell(reader, writer):
-        print('connected')
+        global globalid
+        globalid += 1
+        thisid = globalid
+        print('connected', thisid)
         thisShell = mastopy(reader, writer)
         await thisShell.begin()
-        print('disconnected')
+        print('disconnected', thisid)
     
     loop = asyncio.get_event_loop()
     coro = telnetlib3.create_server(port=6023, shell=shell, timeout=False)
@@ -1020,17 +1024,6 @@ if telnet:
     loop.run_until_complete(server.wait_closed()) 
 else:
     thisShell = mastopy(None, None)
-    '''
-    telprnt(logo)
-    name = 'default' #default name
-
-    if (not(exists('./mastopy/info/' + name + '_usercred.secret'))):
-        if (not(exists('./mastopy/info/' + name + '_clientcred.secret'))):
-            loop.run_until_complete(app_create(name))
-        loop.run_until_complete(user_login(name))
-
-    mastodon = Mastodon(access_token = './mastopy/info/' + name + '_usercred.secret')
-    '''
     loop = asyncio.get_event_loop()
     while True:
         if not(loop.run_until_complete(thisShell.begin())):
