@@ -379,13 +379,48 @@ class mastopy:
                     post_text.append('\033[0m')
         if show and (post['poll'] != None):
             self.telprnt('\nPost has poll.')
-            post_text.append('Post has poll')
-        if (post['reblog']):
-            self.telprnt('')
-            self.telprnt('Reposted :')
             post_text.append('')
-            post_text.append('Reposted:')
-            post_text += await self.display_post(post['reblog'])
+            post_text.append('Post has poll')
+            votetotal = post['poll']['votes_count']
+            voted = post['poll']['voted']
+            for i in range(len(post['poll']['options'])):
+                if voted or post['poll']['expired']:
+                    if i in post['poll']['own_votes']:
+                        self.telprnt('> ', end="")
+                        itemcontent = "> "
+                    else:
+                        self.telprnt('- ', end="")
+                        itemcontent = "- "
+                    votescount = post['poll']['options'][i]['votes_count']
+                    if votescount == 0:
+                        votespercent = 0
+                    else:
+                        votespercent = int(round((votescount / votetotal) * 100, 0))
+                    self.telprnt(str(votespercent).ljust(3, " ") + "% ", end='')
+                    itemcontent += str(votespercent).ljust(3, " ") + "% "
+                else:
+                    self.telprnt('- ', end="")
+                    itemcontent = "- "
+                self.telprnt(post['poll']['options'][i]['title'])
+                itemcontent += post['poll']['options'][i]['title']
+                post_text.append(itemcontent)
+            self.telprnt("Total votes : " + str(votetotal))
+            post_text.append("Total votes : " + str(votetotal))
+            if voted:
+                self.telprnt("You've voted in this poll.")
+                post_text.append("You've voted in this poll.")
+            if post['poll']['expired']:
+                self.telprnt("Poll is closed.")
+                post_text.append("Poll is closed.")
+            else:
+                self.telprnt("Poll closes at " + str(post['poll']['expires_at']))
+                post_text.append("Poll closes at " + str(post['poll']['expires_at']))
+        if (post['reblog']):
+                self.telprnt('')
+                self.telprnt('Reposted :')
+                post_text.append('')
+                post_text.append('Reposted:')
+                post_text += await self.display_post(post['reblog'])
         #telprnt('')
         post_text_final = []
         for i in range(len(post_text)):
@@ -666,8 +701,9 @@ class mastopy:
                 self.telprnt('Interact')
                 prompt = ''
                 #prompt = '<L>ike, <R>epost, <B>ookmark :'
+                valid_keys = ['enter', 'l', 'r', 'b', 'f', 'c']
                 if posts[post_num]['favourited']:
-                    prompt += 'Un<L>ike, '
+                        prompt += 'Un<L>ike, '
                 else:
                     prompt += '<L>ike, '
                 if posts[post_num]['reblogged']:
@@ -678,8 +714,12 @@ class mastopy:
                     prompt += 'Un<B>ookmark, '
                 else:
                     prompt += '<B>ookmark, '
+                if posts[post_num]['poll'] != None:
+                    if not(posts[post_num]['poll']['expired'] or posts[post_num]['poll']['voted']):
+                        prompt += '<P>oll, '
+                        valid_keys.append('p')
                 prompt += ' Re<F>resh Post, <C>omment : '
-                key = await self.do_menu(['enter', 'l', 'r', 'b', 'f', 'c'], prompt)
+                key = await self.do_menu(valid_keys, prompt)
                 new_status = None
                 if key == 'b':
                     if posts[post_num]['bookmarked']:
@@ -688,6 +728,24 @@ class mastopy:
                     else:
                         self.telprnt('Bookmark Post')
                         new_status = self.mastodon.status_bookmark(posts[post_num]['id'])
+                elif key == 'p':
+                    print('Vote in Poll')
+                    options = []
+                    for i in range(len(posts[post_num]['poll']['options'])):
+                        options.append(str(i + 1)) # might break things if you can make polls with more than 9 options but I don't think you can?
+                        print(str(i + 1) + '.) ', end='')
+                        print(posts[post_num]['poll']['options'][i]['title'])
+                    key = self.do_menu(options, '> ')
+                    print(key)
+                    new_status = posts[post_num]
+                    pollresponse = self.mastodon.poll_vote(posts[post_num]['poll']['id'], (int(key) - 1))
+                    print(pollresponse) # for some reason this is always None as far as I can tell so as a quick fix, just refresh the page
+                    #posts[post_num]['poll'] = pollresponse # don't do what the API says I should be able to do, instead 
+                    try:
+                        new_status = self.mastodon.status(posts[post_num]['id'])
+                    except mastodonpy.MastodonNetworkError:
+                        #print('Network Error, Couldn\'t refresh post.')
+                        new_status = None
                 elif key == 'l':
                     if posts[post_num]['favourited']:
                         self.telprnt('Remove Like')
