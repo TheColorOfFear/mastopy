@@ -64,6 +64,40 @@ def print_img_bw(imgName, wid=80, ret=False):
         print(ascii_image)
         return None
 
+def print_img_ascii_256_ld(imgName, wid=80, ret=False):
+    img, newwid = open_img(imgName, wid)
+    pixels = img.getdata()
+    pixels_bw = img.convert(mode="L").getdata()
+    ascii_image = "\n"
+    for i in range(len(pixels)//newwid):
+        for j in range(newwid):
+            try:
+                ascii_image += e + "38;5;"
+                r = ((pixels[j + (i*newwid)][0]) * 5) // 256
+                g = ((pixels[j + (i*newwid)][1]) * 5) // 256
+                b = ((pixels[j + (i*newwid)][2]) * 5) // 256
+                ascii_image += str( ( (b ) + (g * 6) + (r * 36) ) + 16) + "m"
+                ascii_image += chars[min( (pixels_bw[j + (i*newwid)]//25),(len(chars) - 1))]
+                ascii_image += c
+            except:
+                raise
+                print(pixels[j + (i*newwid)]//25)
+        ascii_image += "\n"
+    '''
+    new_pixels = [chars[pixel//25] for pixel in pixels]
+    new_pixels = ''.join(new_pixels)
+    
+    # split string of chars into multiple strings of length equal to new width and create a list
+    new_pixels_count = len(new_pixels)
+    ascii_image = [new_pixels[index:index + wid] for index in range(0, new_pixels_count, wid)]
+    ascii_image = "\n".join(ascii_image)
+    '''
+    if ret:
+        return ascii_image
+    else:
+        print(ascii_image)
+        return None
+
 def print_img_ld(imgName, wid=80, ret=False):
     img, newwid = open_img(imgName, wid)
     pixels = img.getdata()
@@ -254,6 +288,8 @@ def print_img(imgName, printType="colour", imgres="high", wid=80, ret=False):
             out = print_img_256_ld(imgName, wid, ret)
     elif printType.lower() == "bw":
         out = print_img_bw(imgName, wid, ret)
+    elif printType.lower() == "ascii_colour":
+        out = print_img_ascii_256_ld(imgName, wid, ret)
     elif printType.lower() == "test":
         out = print_img_256_vh(imgName, wid, ret)
     else:
