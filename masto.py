@@ -28,7 +28,7 @@ default_account = 'default' #set to None for the multi-user menu
 forcelogin = False #set to True for a forced login every time
 
 ##img features
-imgcolour = "bw" #best : "colour", "256" for some terminals
+imgcolour = "ascii_colour" #best : "colour", "256" for some terminals, "bw" for ascii-only, "ascii_colour" for "256" with ascii chars underneath
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
 imgwidthcrunch = "max" #used instead of imgwidth if imgwidth is larger than terminal width
 
@@ -280,16 +280,15 @@ class mastopy:
                 elif fromTop < old_fromTop:
                     self.telprnt('\033[;H', end='')
                     for i in range((fromTop - (self.get_terminal_size()[1] - 1)), fromTop):
-                        self.telprnt('\033[2K\r\033[0m', end='')
+                        self.telprnt('\033[2K\033[G\033[0m', end='')
                         self.telprnt(scroll_list[i])
                     old_fromTop = fromTop
-                    
                 
-                key = await self.do_menu(['up','down', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
-                self.telprnt('\033[2K\r\033[0m', end='')
-                if key == 'up' and (fromTop > self.get_terminal_size()[1] - 1):
+                key = await self.do_menu(['up','down', 'u', 'd', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
+                self.telprnt('\033[2K\033[G\033[0m', end='')
+                if key in ['up', 'u'] and (fromTop > self.get_terminal_size()[1] - 1):
                     fromTop -= 1
-                elif key == 'down' and (fromTop < len(scroll_list)):
+                elif key in ['down', 'd'] and (fromTop < len(scroll_list)):
                     fromTop += 1
                 elif key == 'pageup':
                     if (fromTop - (self.get_terminal_size()[1] - 2) > self.get_terminal_size()[1] - 1):
@@ -1004,8 +1003,10 @@ class mastopy:
         if telnet:
             self.tnwrite.close()
 
-logo = """
-.  .._. _____ _ ._  _ .  .\n|\\/||_|/__ | / \\| \\/ \\|\\ |\n|  || |__/ | \\_/|_/\\_/| \\|\n
+logo = """\
+.  .._. _____ _ ._  _ .  .
+|\\/||_|/__ | / \\| \\/ \\|\\ |
+|  || |__/ | \\_/|_/\\_/| \\|\n\
 """
 globalid = 0
 if telnet:
