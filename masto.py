@@ -31,6 +31,7 @@ forcelogin = False #set to True for a forced login every time
 imgcolour = "ascii_colour" #best : "colour", "256" for some terminals, "bw" for ascii-only, "ascii_colour" for "256" with ascii chars underneath
 imgwidth  = 60 #best: "original", "max" to stretch to terminal size, any int to specify width
 imgwidthcrunch = "max" #used instead of imgwidth if imgwidth is larger than terminal width
+askimages = True #if True, ask to set per-session image prefs
 
 ##create dirs
 if not os.path.exists('./mastopy/info/'):
@@ -325,7 +326,7 @@ class mastopy:
                         offset = 0
 
     async def display_post(self, post) :
-        global images, imgcolour, imgwidth, imgwidthcrunch
+        global imgwidth, imgwidthcrunch
         show = True
         account = post['account']
         post_text = [
@@ -361,16 +362,16 @@ class mastopy:
                 post_text.append(textwrap.fill(attachment['url'], self.get_terminal_size()[0]))
                 post_text.append(textwrap.fill(str(attachment['description']), self.get_terminal_size()[0]))
 
-                if images and await self.yn_prompt('show image? (y/n) '):
+                if self.images and await self.yn_prompt('show image? (y/n) '):
                     try:
                         imgname = attachment['url'].split('/')[-1]
                         if imgname == 'original':
                             imgname = 'original.png' # just assume PNG idk
                         urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
                         if imgwidth > self.get_terminal_size()[0]:
-                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidthcrunch, ret=True)
+                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidthcrunch, ret=True)
                         else:
-                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=imgcolour, wid=imgwidth, ret=True)
+                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidth, ret=True)
                         post_text += img_text.split('\n')[:-1]
                         self.telprnt(img_text)
                     except:
@@ -428,9 +429,8 @@ class mastopy:
         return(post_text_final)
 
     def display_pfp(self, account, request='avatar_static', width = 10, deco = True):
-        global imgcolour
         urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
-        pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=imgcolour).split('\n')
+        pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=self.imgcolour).split('\n')
         out = ''
         if deco:
             out += ' '
@@ -451,13 +451,13 @@ class mastopy:
         return out
 
     def display_account(self, account, relationship=None, show_pfp = True, show_banner = True):
-        global images
+        self.telprnt('')
         if relationship == None:
             relation = self.mastodon.account_relationships(account['id'])[0]
         else:
             relation = relationship
         wid = 10
-        if show_pfp and images:
+        if show_pfp and self.images:
             hei = 5
             i = 0
             banner = []
@@ -986,16 +986,30 @@ class mastopy:
         self.tnwrite = writer
 
     async def begin(self):
-        global telnet
+        global telnet, imgcolour, images, askimages
         name = 'default' #default name
 
         self.telprnt(logo)
-        
+        self.images = images
+        self.imgcolour = imgcolour
+
         if telnet:
             self.telprnt('Press your backspace key ', end='')
             self.backspace = await self.get_input()
             self.telprnt("")
-
+            if askimages:
+                imgpref = await self.do_menu(['t','a','c'], 'Images: Alt <T>ext, <A>scii, <C>olour : ')
+                if imgpref.lower() == 't':
+                    self.images = False
+                    self.telprnt('Alt Text')
+                elif imgpref.lower() == 'a':
+                    self.images = True
+                    self.imgcolour = 'bw'
+                    self.telprnt('ASCII')
+                elif imgpref.lower() == 'c':
+                    self.images = True
+                    self.images = '256'
+                    self.telprnt('Colour')
         self.mastodon = await self.usermenu()
 
         while True and not(self.mastodon == None):
