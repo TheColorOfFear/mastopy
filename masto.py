@@ -18,7 +18,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -1029,7 +1029,7 @@ class mastopy:
                 self.telprnt('ASCII')
             elif imgpref.lower() == 'c':
                 self.images = True
-                self.images = '256'
+                self.imgcolour = '256'
                 self.telprnt('Colour')
         
         self.mastodon = await self.usermenu()
