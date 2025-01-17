@@ -1017,19 +1017,21 @@ class mastopy:
             self.telprnt('Press your backspace key ', end='')
             self.backspace = await self.get_input()
             self.telprnt("")
-            if askimages:
-                imgpref = await self.do_menu(['t','a','c'], 'Images: Alt <T>ext, <A>scii, <C>olour : ')
-                if imgpref.lower() == 't':
-                    self.images = False
-                    self.telprnt('Alt Text')
-                elif imgpref.lower() == 'a':
-                    self.images = True
-                    self.imgcolour = 'bw'
-                    self.telprnt('ASCII')
-                elif imgpref.lower() == 'c':
-                    self.images = True
-                    self.images = '256'
-                    self.telprnt('Colour')
+        
+        if askimages:
+            imgpref = await self.do_menu(['t','a','c'], 'Images: Alt <T>ext, <A>scii, <C>olour : ')
+            if imgpref.lower() == 't':
+                self.images = False
+                self.telprnt('Alt Text')
+            elif imgpref.lower() == 'a':
+                self.images = True
+                self.imgcolour = 'bw'
+                self.telprnt('ASCII')
+            elif imgpref.lower() == 'c':
+                self.images = True
+                self.images = '256'
+                self.telprnt('Colour')
+        
         self.mastodon = await self.usermenu()
 
         while True and not(self.mastodon == None):
