@@ -2,14 +2,10 @@ from mastodon import Mastodon
 import mastodon as mastodonpy
 from getpass import getpass
 from os.path import exists
-import datetime
-from dateutil.tz import tzutc
 from io import StringIO
 from html.parser import HTMLParser
 import os
-#from sshkeyboard import listen_keyboard, stop_listening
 import readchar
-from time import sleep
 import urllib.request
 import textwrap
 import re
@@ -22,7 +18,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
