@@ -152,6 +152,7 @@ class mastopy:
                     out += key
                 self.tnwrite.write(''.join(i for i in key if ord(i)<128))
                 key = str(await self.tnread.read(1))
+            self.telprnt('')
             return out
         else:
             key = input()
