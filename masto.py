@@ -7,7 +7,8 @@ from dateutil.tz import tzutc
 from io import StringIO
 from html.parser import HTMLParser
 import os
-from sshkeyboard import listen_keyboard, stop_listening
+#from sshkeyboard import listen_keyboard, stop_listening
+import readchar
 from time import sleep
 import urllib.request
 import textwrap
@@ -21,7 +22,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -286,7 +287,7 @@ class mastopy:
                         self.telprnt(scroll_list[i])
                     old_fromTop = fromTop
                 
-                key = await self.do_menu(['up','down', 'u', 'd', 'pageup','pagedown', 'enter','esc','s'], '<UP>/<DOWN> to scroll, <S> to stop :')
+                key = await self.do_menu(['up','down', 'u', 'd', 'pageup','pagedown', 'enter','esc','s'], '<U>P/<D>OWN to scroll, <S> to stop :')
                 self.telprnt('\033[2K\033[G\033[0m', end='')
                 if key in ['up', 'u'] and (fromTop > self.get_terminal_size()[1] - 1):
                     fromTop -= 1
@@ -502,11 +503,34 @@ class mastopy:
                 key = "enter"
             return key
         else:
+            #readchar solution, it's okay but I'd need to add every single new key to this and make it the same as the telnet version
+            key = readchar.readkey()
+            if key == readchar.key.DOWN:
+                key = 'down'
+            elif key == readchar.key.UP:
+                key = 'up'
+            elif key == readchar.key.ENTER:
+                key = 'enter'
+            elif key == readchar.key.PAGE_DOWN:
+                key = 'pagedown'
+            elif key == readchar.key.PAGE_UP:
+                key = 'pageup'
+            elif key == readchar.key.ESC:
+                key = 'esc'
+            #print([key])
+            return key
+
+            '''
+            #telinput solution, worse than sshkeyboard but actually works
             key = (await self.telinput()).lower()
             if key == "":
                 key = "enter"
             return key
             '''
+
+
+            '''
+            #sshkeyboard solution, doesn't work because async
             try:
                 self.getinput_key = []
                 def press(getinput_key, key) :
