@@ -18,7 +18,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -212,6 +212,13 @@ class mastopy:
                 else:
                     print(args[i], end=' ')
 
+    #wrapper for image.print_img
+    def print_img(self, imgName, printType="colour", imgres="high", wid=80, ret=False):
+        out = image.print_img(imgName, printType=printType, imgres=imgres, wid=wid, ret=ret)
+
+        if telnet:
+            out = out.replace('█', '@').replace('▀', '=')
+        return out
     class MLStripper(HTMLParser):
         def __init__(self):
             super().__init__()
@@ -366,9 +373,9 @@ class mastopy:
                             imgname = 'original.png' # just assume PNG idk
                         urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
                         if imgwidth > self.get_terminal_size()[0]:
-                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidthcrunch, ret=True)
+                            img_text = self.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidthcrunch, ret=True)
                         else:
-                            img_text = image.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidth, ret=True)
+                            img_text = self.print_img('./mastopy/resources/images/' + str(post['id']) + '_' + imgname, printType=self.imgcolour, wid=imgwidth, ret=True)
                         post_text += img_text.split('\n')[:-1]
                         self.telprnt(img_text)
                     except:
@@ -427,7 +434,7 @@ class mastopy:
 
     def display_pfp(self, account, request='avatar_static', width = 10, deco = True):
         urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
-        pfp = image.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=self.imgcolour).split('\n')
+        pfp = self.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=self.imgcolour).split('\n')
         out = ''
         if deco:
             out += ' '
