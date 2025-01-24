@@ -756,23 +756,26 @@ class mastopy:
                         self.telprnt('Bookmark Post')
                         new_status = self.mastodon.status_bookmark(posts[post_num]['id'])
                 elif key == 'p':
-                    print('Vote in Poll')
-                    options = []
+                    self.telprnt('Vote in Poll')
+                    options = ['enter']
                     for i in range(len(posts[post_num]['poll']['options'])):
                         options.append(str(i + 1)) # might break things if you can make polls with more than 9 options but I don't think you can?
-                        print(str(i + 1) + '.) ', end='')
-                        print(posts[post_num]['poll']['options'][i]['title'])
-                    key = self.do_menu(options, '> ')
-                    print(key)
-                    new_status = posts[post_num]
-                    pollresponse = self.mastodon.poll_vote(posts[post_num]['poll']['id'], (int(key) - 1))
-                    print(pollresponse) # for some reason this is always None as far as I can tell so as a quick fix, just refresh the page
-                    #posts[post_num]['poll'] = pollresponse # don't do what the API says I should be able to do, instead 
-                    try:
-                        new_status = self.mastodon.status(posts[post_num]['id'])
-                    except mastodonpy.MastodonNetworkError:
-                        #print('Network Error, Couldn\'t refresh post.')
-                        new_status = None
+                        self.telprnt(str(i + 1) + '.) ', end='')
+                        self.telprnt(posts[post_num]['poll']['options'][i]['title'])
+                    key = await self.do_menu(options, '> ')
+                    if key != 'enter':
+                        self.telprnt(key)
+                        new_status = posts[post_num]
+                        pollresponse = self.mastodon.poll_vote(posts[post_num]['poll']['id'], (int(key) - 1))
+                        #print(pollresponse) # for some reason this is always None as far as I can tell so as a quick fix, just refresh the page
+                        #posts[post_num]['poll'] = pollresponse # don't do what the API says I should be able to do, instead 
+                        try:
+                            new_status = self.mastodon.status(posts[post_num]['id'])
+                        except mastodonpy.MastodonNetworkError:
+                            #print('Network Error, Couldn\'t refresh post.')
+                            new_status = None
+                    else:
+                        self.telprnt('')
                 elif key == 'l':
                     if posts[post_num]['favourited']:
                         self.telprnt('Remove Like')
