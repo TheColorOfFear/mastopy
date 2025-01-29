@@ -345,25 +345,40 @@ class mastopy:
     async def display_post(self, post) :
         global imgwidth, imgwidthcrunch
         show = True
-        account = post['account']
+        if not(self.atprotoMode):
+            account = post['account']
+            displayname = account['display_name']
+            handle = account['acct']
+            created_at = post['created_at']
+            content = post['content']
+        else:
+            account = post.author
+            displayname = account.display_name
+            handle = account.handle
+            created_at = post.indexed_at
+            content = post.record.text
         post_text = [
-            textwrap.fill(account['display_name'] + ' | ' + account['acct'], self.get_terminal_size()[0]),
-            textwrap.fill('posted on ' + str(post['created_at']), self.get_terminal_size()[0])
+            textwrap.fill(displayname + ' | ' + handle, self.get_terminal_size()[0]),
+            textwrap.fill('posted on ' + str(created_at), self.get_terminal_size()[0])
             ]
-        self.telprnt(account['display_name'] + ' | ' + account['acct'])
-        self.telprnt('posted on',  post['created_at'])
-        if not(post['url'] == None):
-            self.telprnt(post['url'])
-            post_text.append(textwrap.fill(post['url'], self.get_terminal_size()[0]))
-        if post['sensitive']:
+        self.telprnt(displayname + ' | ' + handle)
+        self.telprnt('posted on ' + str(created_at))
+        if not((not(self.atprotoMode) and post['url'] == None)):
+            if not(self.atprotoMode):
+                url = post['url']
+            else:
+                url = post.uri
+            self.telprnt(url)
+            post_text.append(textwrap.fill(url, self.get_terminal_size()[0]))
+        if not(self.atprotoMode) and post['sensitive']: #TODO ATPROTO, not sure how to do this
             show = await self.yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
             post_text.append(textwrap.fill('sensitive content labeled "' + post['spoiler_text'], self.get_terminal_size()[0]))
-        if show and (post['reblog'] == None):
+        if (not(self.atprotoMode) and show and (post['reblog'] == None)) or (self.atprotoMode): #TODO ATPROTO, not sure how to know if something is a repost yet
             self.telprnt('')
-            self.telprnt(textwrap.fill(self.strip_tags(post['content']), self.get_terminal_size()[0], replace_whitespace=False))
+            self.telprnt(textwrap.fill(self.strip_tags(content), self.get_terminal_size()[0], replace_whitespace=False))
             post_text.append('')
-            post_text.append(textwrap.fill(self.strip_tags(post['content']), self.get_terminal_size()[0]))
-        if show and (len(post['media_attachments']) != 0):
+            post_text.append(textwrap.fill(self.strip_tags(content), self.get_terminal_size()[0]))
+        if not(self.atprotoMode) and show and (len(post['media_attachments']) != 0): #TODO ATPROTO, just want to get posts working before I dive into attachments.
             self.telprnt('')
             self.telprnt('Post has media')
             post_text.append('')
@@ -395,7 +410,7 @@ class mastopy:
                         self.telprnt('Something went wrong displaying the image.')
                     self.telprnt('\033[0m', end='')
                     post_text.append('\033[0m')
-        if show and (post['poll'] != None):
+        if not(self.atprotoMode) and show and (post['poll'] != None): #TODO ATPROTO, same as with attachments I just want to get basic posting working
             self.telprnt('\nPost has poll.')
             post_text.append('')
             post_text.append('Post has poll')
@@ -433,7 +448,7 @@ class mastopy:
             else:
                 self.telprnt("Poll closes at " + str(post['poll']['expires_at']))
                 post_text.append("Poll closes at " + str(post['poll']['expires_at']))
-        if (post['reblog']):
+        if not(self.atprotoMode) and (post['reblog']): #TODO ATPROTO not entirely sure how reposts work in ATPROTO
                 self.telprnt('')
                 self.telprnt('Reposted :')
                 post_text.append('')
@@ -515,7 +530,7 @@ class mastopy:
         else:
             created_at = account.created_at
         self.telprnt('Created: ', created_at)
-        if (not(self.atprotoMode) and relation['following']): #TODO ATPROTO, would require more work
+        if (not(self.atprotoMode) and relation['following']): #TODO ATPROTO, need to fix relation before I work on this
             self.telprnt('Following')
         self.hr(length=wid + 2)
         if not(self.atprotoMode):
@@ -931,6 +946,8 @@ class mastopy:
 
     async def main_menu(self):
         self.hr(minus=7)
+        #TODO ATPROTO : 
+        #   "View by ID" should be "View by URI"
         self.telprnt('Timelines: <H>ome, <L>ocal, <F>ederated')
         self.telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
         self.telprnt('Search:    <S>earch, search by Hash<T>ag')
@@ -965,8 +982,13 @@ class mastopy:
                 if key == 'v':
                     self.telprnt('View post ID: ',end='')
                     id = await self.telinput('')
+                    id = 'at://did:plc:kvwvcn5iqfooopmyzvb4qzba/app.bsky.feed.post/3k2yihcrp6f2c'
                     if (id != ''):
-                        post = [self.mastodon.status(id)]
+                        if not(self.atprotoMode):
+                            post = [self.mastodon.status(id)]
+                        else:
+                            id = [id]
+                            post = self.mastodon.get_posts(id).posts
                         await self.display_posts(post)
                     return True
                 elif key =='b':
