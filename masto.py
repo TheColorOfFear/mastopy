@@ -12,17 +12,18 @@ import re
 import img2txt as image
 from pydoc import pager
 import asyncio, telnetlib3
-
+import atproto
 ##feature toggle
 images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
+atprotoMode = True #enable atproto mode
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
-forcelogin = False #set to True for a forced login every time
+forcelogin = True #set to True for a forced login every time
 
 ##img features
 imgcolour = "ascii_colour" #best : "colour", "256" for some terminals, "bw" for ascii-only, "ascii_colour" for "256" with ascii chars underneath
@@ -56,31 +57,43 @@ class mastopy:
                 to_file = './mastopy/info/' + name + '_clientcred.secret'
             )
     async def user_login(self, name) :
-        if name == None:
-            api_base_url = await self.telinput('Server URL : ')
-            self.telprnt("")
-            appinfo = await self.app_create(None, api_base_url)
-            mastodon = Mastodon(api_base_url = api_base_url, client_id = appinfo[0], client_secret = appinfo[1])
-            email = await self.telinput('Email Address : ')
-            self.telprnt("")
-            password = await self.telgetpass('Password : ')
-            self.telprnt("")
-            mastodon.log_in(
-                email,
-                password,
-            )
-            return mastodon
+        if not(self.atprotoMode):
+            if name == None:
+                api_base_url = await self.telinput('Server URL : ')
+                self.telprnt("")
+                appinfo = await self.app_create(None, api_base_url)
+                mastodon = Mastodon(api_base_url = api_base_url, client_id = appinfo[0], client_secret = appinfo[1])
+                email = await self.telinput('Email Address : ')
+                self.telprnt("")
+                password = await self.telgetpass('Password : ')
+                self.telprnt("")
+                mastodon.log_in(
+                    email,
+                    password,
+                )
+                return mastodon
+            else:
+                mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
+                email = await self.telinput('Email Address : ')
+                self.telprnt("")
+                password = await self.telgetpass('Password : ')
+                self.telprnt("")
+                mastodon.log_in(
+                    email,
+                    password,
+                    to_file = './mastopy/info/' + name +'_usercred.secret'
+                )
         else:
-            mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
-            email = await self.telinput('Email Address : ')
+            atprotoClient = atproto.Client()
+            username = await self.telinput('Username : ')
             self.telprnt("")
             password = await self.telgetpass('Password : ')
             self.telprnt("")
-            mastodon.log_in(
-                email,
+            atprotoClient.login(
+                username,
                 password,
-                to_file = './mastopy/info/' + name +'_usercred.secret'
             )
+            return atprotoClient
 
     async def usermenu(self):
         global forcelogin, default_account
@@ -433,8 +446,16 @@ class mastopy:
         return(post_text_final)
 
     def display_pfp(self, account, request='avatar_static', width = 10, deco = True):
-        urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
-        pfp = self.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=self.imgcolour).split('\n')
+        if not(self.atprotoMode):
+            urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
+            reqpath = './mastopy/resources/pfps/' + str(account['id']) + request +'.png'
+        else:
+            if request == 'avatar_static':
+                urllib.request.urlretrieve(account.avatar, './mastopy/resources/pfps/' + account.handle + request +'.png')
+            elif request == 'banner_static':
+                urllib.request.urlretrieve(account.banner, './mastopy/resources/pfps/' + account.handle + request +'.png')
+            reqpath = './mastopy/resources/pfps/' + account.handle + request +'.png'
+        pfp = self.print_img(reqpath, wid=width, ret=True, printType=self.imgcolour).split('\n')
         out = ''
         if deco:
             out += ' '
@@ -457,7 +478,9 @@ class mastopy:
     def display_account(self, account, relationship=None, show_pfp = True, show_banner = True):
         self.telprnt('')
         if relationship == None:
-            relation = self.mastodon.account_relationships(account['id'])[0]
+            #TODO ATPROTO
+            if not(self.atprotoMode):
+                relation = self.mastodon.account_relationships(account['id'])[0]
         else:
             relation = relationship
         wid = 10
@@ -479,21 +502,34 @@ class mastopy:
             for i in range(wid):
                 self.telprnt('-', end='')
             self.telprnt('')
-        self.telprnt(account['display_name'] + ' | ' + account['acct'])
-        self.telprnt(account['url'])
-        if account['bot']:
+        if not(self.atprotoMode):
+            self.telprnt(account['display_name'] + ' | ' + account['acct'])
+            self.telprnt(account['url'])
+        else:
+            self.telprnt(account.display_name + ' | ' + account.handle)
+            #self.telprnt(account['url']) #TODO ATPROTO
+        if (not(self.atprotoMode) and account['bot']): #not a feature in the atproto as far as I can tell?
             self.telprnt('Automated Account')
-        self.telprnt('Created: ', account['created_at'])
-        if relation['following']:
+        if not(self.atprotoMode):
+            created_at = account['created_at']
+        else:
+            created_at = account.created_at
+        self.telprnt('Created: ', created_at)
+        if (not(self.atprotoMode) and relation['following']): #TODO ATPROTO, would require more work
             self.telprnt('Following')
         self.hr(length=wid + 2)
-        self.telprnt(self.strip_tags(account['note']))
+        if not(self.atprotoMode):
+            bio = account['note']
+        else:
+            bio = account.description
+        self.telprnt(self.strip_tags(bio))
         self.hr(length=wid + 2)
-        for field in account['fields']:
-            self.telprnt(field['name'] + ' | ', end='')
-            if not(field['verified_at'] == None):
-                self.telprnt('\033[32m', end='')
-            self.telprnt(self.strip_tags(str(field['value'])) + '\033[0m')
+        if not(self.atprotoMode): #TODO ATPROTO
+            for field in account['fields']: #is there something that's equivilant to this in atproto
+                self.telprnt(field['name'] + ' | ', end='')
+                if not(field['verified_at'] == None):
+                    self.telprnt('\033[32m', end='')
+                self.telprnt(self.strip_tags(str(field['value'])) + '\033[0m')
         self.telprnt('')
 
     getinput_key = []
@@ -968,8 +1004,12 @@ class mastopy:
             elif key in ['m']:#,'n']:
                 if key == 'm':
                     self.telprnt('My Account')
-                    account = self.mastodon.me()
-                    self.display_account(account)
+                    if not(self.atprotoMode):
+                        account = self.mastodon.me()
+                        self.display_account(account)
+                    else:
+                        account = self.mastodon.get_profile("thecolouroftest.bsky.social")
+                        self.display_account(account)
                     return True
             #    elif key == 'n':
             #        telprnt('Notifications')
@@ -1016,12 +1056,13 @@ class mastopy:
         self.tnwrite = writer
 
     async def begin(self):
-        global telnet, imgcolour, images, askimages
+        global telnet, imgcolour, images, askimages, atprotoMode
         name = 'default' #default name
 
         self.telprnt(logo)
         self.images = images
         self.imgcolour = imgcolour
+        self.atprotoMode = atprotoMode
 
         if telnet:
             self.telprnt('Press your backspace key ', end='')
