@@ -18,8 +18,9 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
 atprotoMode = True #enable atproto mode
+askatproto = True #ask user if they're using the atproto
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -93,7 +94,6 @@ class mastopy:
                 username,
                 password,
             )
-            return atprotoClient
 
     async def usermenu(self):
         global forcelogin, default_account
@@ -859,7 +859,7 @@ class mastopy:
                 key = await self.do_menu(valid_keys, prompt)
                 new_status = None
                 if key == 'b':
-                    if not(self.atprotomode) and posts[post_num]['bookmarked']: #TODO ATPROTO, see other comments on bookmarks
+                    if not(self.atprotoMode) and posts[post_num]['bookmarked']: #TODO ATPROTO, see other comments on bookmarks
                         self.telprnt('Remove Bookmark')
                         new_status = self.mastodon.status_unbookmark(posts[post_num]['id'])
                     else:
@@ -1186,7 +1186,7 @@ class mastopy:
         self.tnwrite = writer
 
     async def begin(self):
-        global telnet, imgcolour, images, askimages, atprotoMode
+        global telnet, imgcolour, images, askimages, atprotoMode, askatproto
         name = 'default' #default name
 
         self.telprnt(logo)
@@ -1213,6 +1213,8 @@ class mastopy:
                 self.imgcolour = '256'
                 self.telprnt('Colour')
         
+        if askatproto:
+            self.atprotoMode = await self.yn_prompt("AtProto account? ")
         self.mastodon = await self.usermenu()
 
         while True and not(self.mastodon == None):
