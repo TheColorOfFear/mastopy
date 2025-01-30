@@ -919,7 +919,7 @@ class mastopy:
                         await self.display_posts(posts)
                     return True
                 elif key =='f':
-                    print('Federated timeline')
+                    self.telprnt('Federated timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
                         posts = self.mastodon.timeline_public(limit=int(howmany))
@@ -1057,6 +1057,7 @@ logo = """\
 """
 globalid = 0
 if telnet:
+    print('ready')
     async def shell(reader, writer):
         global globalid
         globalid += 1
