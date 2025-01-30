@@ -1033,7 +1033,7 @@ class mastopy:
     async def bskyLRR2post(self, ListRecordsResponse):
         outputlist = []
         for uri, post in ListRecordsResponse:
-            print(uri, post.text)
+            #print(uri, post.text)
             id = [uri]
             outpost = self.mastodon.get_posts(id).posts
             outputlist += outpost
@@ -1068,7 +1068,7 @@ class mastopy:
                             # posts = self.mastodon.app.bsky.feed.post.list(self.mastodon.me.did, limit=int(howmany)).records.items() #this should work?
                             # posts = await self.bskyLRR2post(posts)
                             posts = await self.bskyFeed2post(self.mastodon.get_timeline(limit=int(howmany)).feed)
-                            print(posts)
+                            #print(posts)
                         await self.display_posts(posts)
                     return True
                 elif key =='l': #TODO ATPROTO, other timelines have no use as of yet
