@@ -467,7 +467,7 @@ class mastopy:
         else:
             if request == 'avatar_static':
                 urllib.request.urlretrieve(account.avatar, './mastopy/resources/pfps/' + account.handle + request +'.png')
-            elif request == 'banner_static':
+            elif request == 'banner_static' or request == 'header_static':
                 urllib.request.urlretrieve(account.banner, './mastopy/resources/pfps/' + account.handle + request +'.png')
             reqpath = './mastopy/resources/pfps/' + account.handle + request +'.png'
         pfp = self.print_img(reqpath, wid=width, ret=True, printType=self.imgcolour).split('\n')
@@ -504,10 +504,10 @@ class mastopy:
             i = 0
             banner = []
             while len(banner) < hei:
-                banner = self.display_pfp(account, request='header_static', width=30+i, deco=False).split('\n')[1:-1]
+                banner = (self.display_pfp(account, request='header_static', width=30+i, deco=False)).split('\n')[1:-1]
                 wid = 41 + i
                 i += 1
-            pfp    = self.display_pfp(account, request='avatar_static', deco=False).split('\n')[1:-1]
+            pfp    = (self.display_pfp(account, request='avatar_static', deco=False)).split('\n')[1:-1]
             self.telprnt(' ', end='')
             for i in range(wid):
                 self.telprnt('-', end='')
@@ -688,7 +688,6 @@ class mastopy:
                 break
             elif key == '?' :
                 self.telprnt(posts[post_num])
-                self.telprnt(self.strip_tags(posts[post_num]['content']).split('\n')[-1])
                 await self.get_input()
             elif key == 'n' :
                 self.telprnt('Next')
@@ -704,25 +703,34 @@ class mastopy:
                 if scrolling and self.get_post_size(post_text_list) > self.get_terminal_size()[1]:
                     prompt += '<P>ost, '
                     keys += 'p'
-                if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
-                    prompt += '<T>hread, '
-                    keys += 't'
-                if (posts[post_num]['replies_count'] > 0)      or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['replies_count'] > 0):
-                    if posts[post_num]['reblog'] != None:
-                        prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['reblog']['replies_count']))
-                    else:
-                        prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
-                    keys += 'r'
+                if not(self.atprotoMode):
+                    if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
+                        prompt += '<T>hread, '
+                        keys += 't'
+                    if (posts[post_num]['replies_count'] > 0)      or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['replies_count'] > 0):
+                        if posts[post_num]['reblog'] != None:
+                            prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['reblog']['replies_count']))
+                        else:
+                            prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
+                        keys += 'r'
+                else:
+                    if False and ((posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None)):
+                        prompt += '<T>hread, '
+                        keys += 't'
+                    if (posts[post_num].reply_count > 0):
+                        prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num].reply_count))
+                        keys += 'r'
                 if len(post_archive) > 0 :
                     prompt += '<B>ack, '
                     keys += 'b'
-                if quotes and self.strip_tags(posts[post_num]['content']).split('\n')[-1][:8] == 'RE: http':
-                    prompt += '<Q>uoted Post, '
-                    keys += 'q'
+                if not(self.atprotoMode): #TODO ATPROTO : work on quote posts because they work differently than on mastodon
+                    if quotes and self.strip_tags(posts[post_num]['content']).split('\n')[-1][:8] == 'RE: http':
+                        prompt += '<Q>uoted Post, '
+                        keys += 'q'
                 prompt += '<A>ccount, Re<F>resh Post : '
                 key = await self.do_menu(keys, prompt)
                 
-                if key == 'a' :
+                if key == 'a' : #TODO ATPROTO
                     self.telprnt('View Account')
                     account = posts[post_num]['account']
                     newposts = await self.account_menu(account)
@@ -739,7 +747,7 @@ class mastopy:
                     self.telprnt('Go Back')
                     posts = post_archive.pop(0)
                     post_num = post_num_archive.pop(0)
-                elif key == 't' :
+                elif key == 't' : #TODO ATPROTO
                     self.telprnt('View Thread')
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
@@ -752,11 +760,14 @@ class mastopy:
                     self.telprnt('View Replies')
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
-                    if posts[post_num]['reblog'] != None:
-                        posts, post_num = self.get_replies(posts[post_num]['reblog'])
+                    if not(self.atprotoMode):
+                        if posts[post_num]['reblog'] != None:
+                            posts, post_num = self.get_replies(posts[post_num]['reblog'])
+                        else:
+                            posts, post_num = self.get_replies(posts[post_num])
                     else:
                         posts, post_num = self.get_replies(posts[post_num])
-                elif key == 'q' :
+                elif key == 'q' : #TODO ATPROTO
                     self.telprnt('View Quoted Post')
                     quotedURL = self.strip_tags(posts[post_num]['content']).split('\n')[-1].split('RE: ')[1]
                     newposts = self.mastodon.search(quotedURL, result_type='statuses')
@@ -768,7 +779,7 @@ class mastopy:
                         post_num = 0
                     else:
                         self.telprnt('Quoted Post Not Found')
-                elif key == 'f':
+                elif key == 'f': #TODO ATPROTO
                     self.telprnt('Refresh Post')
                     try:
                         new_status = self.mastodon.status(posts[post_num]['id'])
@@ -978,21 +989,21 @@ class mastopy:
                         if not(self.atprotoMode):
                             posts = self.mastodon.timeline_home(limit=int(howmany))
                         else:
-                            #this gets YOUR posts
+                            #the following comment gets YOUR posts
                             # posts = self.mastodon.app.bsky.feed.post.list(self.mastodon.me.did, limit=int(howmany)).records.items() #this should work?
                             # posts = await self.bskyLRR2post(posts)
                             posts = await self.bskyFeed2post(self.mastodon.get_timeline(limit=int(howmany)).feed)
                             print(posts)
                         await self.display_posts(posts)
                     return True
-                elif key =='l':
+                elif key =='l': #TODO ATPROTO, other timelines have no use as of yet
                     self.telprnt('Local timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
                         posts = self.mastodon.timeline_local(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
-                elif key =='f':
+                elif key =='f': #TODO ATPROTO, other timelines have no use as of yet
                     print('Federated timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
@@ -1003,7 +1014,7 @@ class mastopy:
                 if key == 'v':
                     self.telprnt('View post ID: ',end='')
                     id = await self.telinput('')
-                    id = 'at://did:plc:kvwvcn5iqfooopmyzvb4qzba/app.bsky.feed.post/3k2yihcrp6f2c'
+                    #id = 'at://did:plc:kvwvcn5iqfooopmyzvb4qzba/app.bsky.feed.post/3k2yihcrp6f2c'
                     if (id != ''):
                         if not(self.atprotoMode):
                             post = [self.mastodon.status(id)]
@@ -1012,19 +1023,19 @@ class mastopy:
                             post = self.mastodon.get_posts(id).posts
                         await self.display_posts(post)
                     return True
-                elif key =='b':
+                elif key =='b':  #TODO ATPROTO, bsky doesn't have bookmarks
                     self.telprnt('Bookmarks')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
                         posts = self.mastodon.bookmarks(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
-                elif key =='c':
+                elif key =='c':  #TODO ATPROTO
                     self.telprnt('Post')
                     await self.write_status()
                     return True
             elif key in ['s','t']:
-                if key == 's':
+                if key == 's':  #TODO ATPROTO, learn how to use search
                     self.telprnt('Search: ',end='')
                     search_term = await self.telinput('')
                     if (search_term != ''):
@@ -1035,7 +1046,7 @@ class mastopy:
                         else:
                             self.telprnt('No Search Results')
                     return True
-                elif key == 't':
+                elif key == 't':  #TODO ATPROTO, learn how to use search
                     self.telprnt('View posts by Hashtag: ',end='')
                     hashtag = await self.telinput('')
                     if (hashtag != ''):
@@ -1049,9 +1060,9 @@ class mastopy:
                     self.telprnt('My Account')
                     if not(self.atprotoMode):
                         account = self.mastodon.me()
-                        self.display_account(account)
+                        await (account)
                     else:
-                        account = self.mastodon.get_profile("thecolouroftest.bsky.social")
+                        account = self.mastodon.get_profile(self.mastodon.me.did)
                         self.display_account(account)
                     return True
             #    elif key == 'n':
@@ -1080,18 +1091,32 @@ class mastopy:
         return thread
 
     def get_replies(self, post):
-        replies = []
-        replies_tmp = self.mastodon.status_context(post['id'])
-        thread = replies_tmp['ancestors']
-        replies = replies_tmp['descendants']
-        for i in range(len(replies) - 1, -1, -1):
-            if replies[i]['in_reply_to_id'] != post['id']:
-                replies.pop(i)
-        replies_full = []
-        replies_full += thread
-        post_num = len(replies_full)
-        replies_full.append(post)
-        replies_full += replies
+        if not(self.atprotoMode):
+            replies = []
+            replies_tmp = self.mastodon.status_context(post['id'])
+            thread = replies_tmp['ancestors']
+            replies = replies_tmp['descendants']
+            for i in range(len(replies) - 1, -1, -1):
+                if replies[i]['in_reply_to_id'] != post['id']:
+                    replies.pop(i)
+            replies_full = []
+            replies_full += thread
+            post_num = len(replies_full)
+            replies_full.append(post)
+            replies_full += replies
+        else:
+            replies_tmp = self.mastodon.get_post_thread(post.uri)
+            thread = replies_tmp.thread.parent
+            replies = replies_tmp.thread.replies
+            upthread = []
+            while thread != None:
+                upthread.append(thread.post)
+                thread = thread.parent
+            replies_full = list(reversed(upthread))
+            post_num = len(replies_full)
+            replies_full.append(replies_tmp.thread.post)
+            for postList in replies:
+                replies_full.append(postList.post)
         return replies_full, post_num
     
     def __init__(self, reader, writer):
