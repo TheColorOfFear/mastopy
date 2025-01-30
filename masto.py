@@ -821,20 +821,34 @@ class mastopy:
                 self.telprnt('Interact')
                 prompt = ''
                 #prompt = '<L>ike, <R>epost, <B>ookmark :'
-                valid_keys = ['enter', 'l', 'r', 'b', 'f', 'c']
-                if posts[post_num]['favourited']:
+                valid_keys = ['enter', 'l', 'r','f', 'c']
+                if not(self.atprotoMode):
+                    favourited = posts[post_num]['favourited']
+                    reblogged = posts[post_num]['reblogged']
+                else:
+                    if posts[post_num].viewer.like == None:
+                        favourited = False
+                    else: 
+                        favourited = True
+                    if posts[post_num].viewer.repost == None:
+                        reblogged = False
+                    else:
+                        reblogged = True
+                if favourited:
                         prompt += 'Un<L>ike, '
                 else:
                     prompt += '<L>ike, '
-                if posts[post_num]['reblogged']:
+                if reblogged:
                     prompt += 'Un<R>epost, '
                 else:
                     prompt += '<R>epost, '
-                if posts[post_num]['bookmarked']:
-                    prompt += 'Un<B>ookmark, '
-                else:
-                    prompt += '<B>ookmark, '
-                if posts[post_num]['poll'] != None:
+                if not(self.atprotoMode):
+                    if posts[post_num]['bookmarked']: #TODO ATPROTO, see other comments on bookmarks
+                        prompt += 'Un<B>ookmark, '
+                    else:
+                        prompt += '<B>ookmark, '
+                    valid_keys.append('b')
+                if not(self.atprotoMode) and posts[post_num]['poll'] != None: #TODO ATPROTO
                     if not(posts[post_num]['poll']['expired'] or posts[post_num]['poll']['voted']):
                         prompt += '<P>oll, '
                         valid_keys.append('p')
@@ -842,7 +856,7 @@ class mastopy:
                 key = await self.do_menu(valid_keys, prompt)
                 new_status = None
                 if key == 'b':
-                    if posts[post_num]['bookmarked']:
+                    if not(self.atprotomode) and posts[post_num]['bookmarked']: #TODO ATPROTO, see other comments on bookmarks
                         self.telprnt('Remove Bookmark')
                         new_status = self.mastodon.status_unbookmark(posts[post_num]['id'])
                     else:
@@ -870,25 +884,44 @@ class mastopy:
                     else:
                         self.telprnt('')
                 elif key == 'l':
-                    if posts[post_num]['favourited']:
+                    if favourited:
                         self.telprnt('Remove Like')
-                        new_status = self.mastodon.status_unfavourite(posts[post_num]['id'])
-                    else:
+                        if not(self.atprotoMode):
+                            new_status = self.mastodon.status_unfavourite(posts[post_num]['id'])
+                        else:
+                            self.mastodon.unlike(posts[post_num].viewer.like)
+                            new_status = self.mastodon.get_posts([posts[post_num].uri]).posts[0]
+                    else: 
                         self.telprnt('Like Post')
-                        new_status = self.mastodon.status_favourite(posts[post_num]['id'])
+                        if not(self.atprotoMode):
+                            new_status = self.mastodon.status_favourite(posts[post_num]['id'])
+                        else:
+                            self.mastodon.like(posts[post_num].uri, posts[post_num].cid)
+                            new_status = self.mastodon.get_posts([posts[post_num].uri]).posts[0]
                 elif key == 'r':
-                    if posts[post_num]['reblogged']:
+                    if reblogged:
                         self.telprnt('Remove Boost')
-                        self.mastodon.status_unreblog(posts[post_num]['id'])
-                        new_status = self.mastodon.status(posts[post_num]['id'])
+                        if not(self.atprotoMode):
+                            self.mastodon.status_unreblog(posts[post_num]['id'])
+                            new_status = self.mastodon.status(posts[post_num]['id'])
+                        else:
+                            self.mastodon.unrepost(posts[post_num].viewer.repost)
+                            new_status = self.mastodon.get_posts([posts[post_num].uri]).posts[0]
                     else:
                         self.telprnt('Boost Post')
-                        self.mastodon.status_reblog(posts[post_num]['id'])
-                        new_status = self.mastodon.status(posts[post_num]['id'])
+                        if not(self.atprotoMode):
+                            self.mastodon.status_reblog(posts[post_num]['id'])
+                            new_status = self.mastodon.status(posts[post_num]['id'])
+                        else:
+                            self.mastodon.repost(posts[post_num].uri, posts[post_num].cid)
+                            new_status = self.mastodon.get_posts([posts[post_num].uri]).posts[0]
                 elif key == 'f':
                     self.telprnt('Refresh Post')
                     try:
-                        new_status = self.mastodon.status(posts[post_num]['id'])
+                        if not(self.atprotoMode):
+                            new_status = self.mastodon.status(posts[post_num]['id'])
+                        else:
+                            new_status = self.mastodon.get_posts([posts[post_num].uri]).posts[0]
                     except mastodonpy.MastodonNetworkError:
                         self.telprnt('Network Error, Couldn\'t refresh post.')
                         new_status = None
