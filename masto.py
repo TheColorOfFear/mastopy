@@ -821,7 +821,7 @@ class mastopy:
                 self.telprnt('Interact')
                 prompt = ''
                 #prompt = '<L>ike, <R>epost, <B>ookmark :'
-                valid_keys = ['enter', 'l', 'r','f', 'c']
+                valid_keys = ['enter', 'l', 'r','f']
                 if not(self.atprotoMode):
                     favourited = posts[post_num]['favourited']
                     reblogged = posts[post_num]['reblogged']
@@ -852,7 +852,10 @@ class mastopy:
                     if not(posts[post_num]['poll']['expired'] or posts[post_num]['poll']['voted']):
                         prompt += '<P>oll, '
                         valid_keys.append('p')
-                prompt += ' Re<F>resh Post, <C>omment : '
+                prompt += ' Re<F>resh Post'
+                if not(self.atprotoMode):
+                    prompt += ', <C>omment : '
+                    valid_keys.append('c')
                 key = await self.do_menu(valid_keys, prompt)
                 new_status = None
                 if key == 'b':
@@ -925,7 +928,7 @@ class mastopy:
                     except mastodonpy.MastodonNetworkError:
                         self.telprnt('Network Error, Couldn\'t refresh post.')
                         new_status = None
-                elif key == 'c':
+                elif key == 'c': #TODO ATPROTO, not sure how to get a ReplyRef object??
                     self.telprnt('Comment')
                     await self.write_status(in_reply_to = posts[post_num])
                 if not(new_status == None):
@@ -964,9 +967,11 @@ class mastopy:
                     '   <A>bort\n' +
                     '   <C>ontinue\n' +
                     '   post <S>tatus\n' +
-                    '   <P>rint formatted\n' +
-                    cw_string +
-                    '   change <V>isibility\n')
+                    '   <P>rint formatted')
+                if not(self.atprotoMode):
+                    self.telprnt(
+                        cw_string +
+                        '   change <V>isibility\n')
             elif key == 'a':
                 self.telprnt('Abort')
                 if await self.yn_prompt('Are you sure? '):
@@ -983,9 +988,15 @@ class mastopy:
             elif key == 's':
                 self.telprnt('Post status')
                 if in_reply_to == None:
-                    self.mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+                    if not(self.atprotoMode):
+                        self.mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+                    else:
+                        self.mastodon.post(post)
                 else:
-                    self.mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
+                    if not(self.atprotoMode):
+                        self.mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
+                    else:
+                        self.telprnt("Replies currently don't work for the ATPROTO. Very sorry!")
                 in_menu = False
             elif key == 'p':
                 self.telprnt('Print formatted')
@@ -1094,7 +1105,7 @@ class mastopy:
                         posts = self.mastodon.bookmarks(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
-                elif key =='c':  #TODO ATPROTO
+                elif key =='c':
                     self.telprnt('Post')
                     await self.write_status()
                     return True
@@ -1140,19 +1151,6 @@ class mastopy:
         except mastodonpy.MastodonNetworkError:
             self.telprnt('Network Error, Exiting.')
             return False
-
-    def get_thread(self, post):
-        thread = []
-        #this_post = post
-        #while (this_post['in_reply_to_id'] != None):
-        #    thread.insert(0,this_post)
-        #    this_post = mastodon.status(this_post['in_reply_to_id'])
-        #thread.insert(0,this_post)
-        thread_tmp = self.mastodon.status_context(post['id'])
-        thread = thread_tmp['ancestors']
-        thread.append(post)
-        #thread += thread_tmp['descendants']
-        return thread
 
     def get_replies(self, post):
         if not(self.atprotoMode):
