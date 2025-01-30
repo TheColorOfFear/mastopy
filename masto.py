@@ -944,6 +944,20 @@ class mastopy:
                 if key == '5':
                     visibility = 'direct'
 
+    async def bskyLRR2post(self, ListRecordsResponse):
+        outputlist = []
+        for uri, post in ListRecordsResponse:
+            print(uri, post.text)
+            id = [uri]
+            outpost = self.mastodon.get_posts(id).posts
+            outputlist += outpost
+        return outputlist
+    async def bskyFeed2post(self, feed):
+        outputlist = []
+        for post in feed:
+            outputlist.append(post.post)
+        return outputlist
+
     async def main_menu(self):
         self.hr(minus=7)
         #TODO ATPROTO : 
@@ -961,7 +975,14 @@ class mastopy:
                     self.telprnt('Home timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
-                        posts = self.mastodon.timeline_home(limit=int(howmany))
+                        if not(self.atprotoMode):
+                            posts = self.mastodon.timeline_home(limit=int(howmany))
+                        else:
+                            #this gets YOUR posts
+                            # posts = self.mastodon.app.bsky.feed.post.list(self.mastodon.me.did, limit=int(howmany)).records.items() #this should work?
+                            # posts = await self.bskyLRR2post(posts)
+                            posts = await self.bskyFeed2post(self.mastodon.get_timeline(limit=int(howmany)).feed)
+                            print(posts)
                         await self.display_posts(posts)
                     return True
                 elif key =='l':
