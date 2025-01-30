@@ -493,11 +493,23 @@ class mastopy:
     def display_account(self, account, relationship=None, show_pfp = True, show_banner = True):
         self.telprnt('')
         if relationship == None:
-            #TODO ATPROTO
             if not(self.atprotoMode):
                 relation = self.mastodon.account_relationships(account['id'])[0]
+            else:
+                relation = account.viewer
         else:
             relation = relationship
+        if not(self.atprotoMode):
+            following = relation['following']
+            created_at = account['created_at']
+            bio = account['note']
+        else:
+            if relation.following == None:
+                following = False
+            else:
+                following = True
+            created_at = account.created_at
+            bio = account.description
         wid = 10
         if show_pfp and self.images:
             hei = 5
@@ -517,6 +529,7 @@ class mastopy:
             for i in range(wid):
                 self.telprnt('-', end='')
             self.telprnt('')
+        
         if not(self.atprotoMode):
             self.telprnt(account['display_name'] + ' | ' + account['acct'])
             self.telprnt(account['url'])
@@ -525,18 +538,10 @@ class mastopy:
             #self.telprnt(account['url']) #TODO ATPROTO
         if (not(self.atprotoMode) and account['bot']): #not a feature in the atproto as far as I can tell?
             self.telprnt('Automated Account')
-        if not(self.atprotoMode):
-            created_at = account['created_at']
-        else:
-            created_at = account.created_at
         self.telprnt('Created: ', created_at)
-        if (not(self.atprotoMode) and relation['following']): #TODO ATPROTO, need to fix relation before I work on this
+        if (following):
             self.telprnt('Following')
         self.hr(length=wid + 2)
-        if not(self.atprotoMode):
-            bio = account['note']
-        else:
-            bio = account.description
         self.telprnt(self.strip_tags(bio))
         self.hr(length=wid + 2)
         if not(self.atprotoMode): #TODO ATPROTO
@@ -618,14 +623,23 @@ class mastopy:
                 return key
 
     async def account_menu(self, account):
-        relationship = self.mastodon.account_relationships(account['id'])[0]
+        relationship = None
+        if not(self.atprotoMode):
+            relationship = self.mastodon.account_relationships(account['id'])[0] #TODO ATPROTO
+        else:
+            account = self.mastodon.get_profile(account.did)
+            relationship = account.viewer
         self.display_account(account, relationship)
         self.hr(minus=7)
         prompt = ''
-        if relationship['following']:
+        if not(self.atprotoMode):
+            following = relationship['following']
+        else:
+            following = account.viewer.following
+        if following:
             prompt += 'Un<F>ollow, '
         else:
-            if account['locked']:
+            if not(self.atprotoMode) and account['locked']:
                 prompt += 'Send <F>ollow Request, '
             else:
                 prompt += '<F>ollow, '
@@ -633,22 +647,29 @@ class mastopy:
         key = await self.do_menu(['enter', 'f', 'v'], prompt)
         
         if key == 'f':
-            if relationship['following']:
+            if following:
                 self.telprnt('Unfollow')
                 if await self.yn_prompt('Are you sure? (y/n) : '):
-                    self.mastodon.account_unfollow(account['id'])
+                    if not(self.atprotoMode):
+                        self.mastodon.account_unfollow(account['id'])
+                    else:
+                        self.mastodon.unfollow(following)
             else:
-                if account['locked']:
+                if not(self.atprotoMode) and account['locked']:
                     self.telprnt('Send Follow Request')
-                    if await self.yn_prompt('Are you sure? (y/n)'):
-                        self.mastodon.account_follow(account['id'])
                 else:
                     self.telprnt('Follow')
-                    if await self.yn_prompt('Are you sure? (y/n)'):
+                if await self.yn_prompt('Are you sure? (y/n)'):
+                    if not(self.atprotoMode):
                         self.mastodon.account_follow(account['id'])
+                    else:
+                        self.mastodon.follow(account.did)
         elif key == 'v':
             self.telprnt('View Posts')
-            posts = self.mastodon.account_statuses(account['id'], limit=int(await self.telinput("how many posts to load? ")))
+            if not(self.atprotoMode):
+                posts = self.mastodon.account_statuses(account['id'], limit=int(await self.telinput("how many posts to load? ")))
+            else:
+                posts = await self.bskyFeed2post(self.mastodon.get_author_feed(account.did, limit=int(await self.telinput("how many posts to load? "))).feed)
             return posts
         return None
         
@@ -714,9 +735,13 @@ class mastopy:
                             prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
                         keys += 'r'
                 else:
-                    if False and ((posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None)):
-                        prompt += '<T>hread, '
-                        keys += 't'
+                    try: #wrap this in a try/except because it sends a network request
+                        a = self.mastodon.get_post_thread(posts[post_num].uri, 0).thread
+                        if a.parent != None:
+                            prompt += '<T>hread, '
+                            keys += 't'
+                    except:
+                        raise
                     if (posts[post_num].reply_count > 0):
                         prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num].reply_count))
                         keys += 'r'
@@ -732,7 +757,10 @@ class mastopy:
                 
                 if key == 'a' : #TODO ATPROTO
                     self.telprnt('View Account')
-                    account = posts[post_num]['account']
+                    if not(self.atprotoMode):
+                        account = posts[post_num]['account']
+                    else:
+                        account = posts[post_num].author
                     newposts = await self.account_menu(account)
                     if newposts != None:
                         post_archive.insert(0, posts)
@@ -747,14 +775,17 @@ class mastopy:
                     self.telprnt('Go Back')
                     posts = post_archive.pop(0)
                     post_num = post_num_archive.pop(0)
-                elif key == 't' : #TODO ATPROTO
+                elif key == 't' : 
                     self.telprnt('View Thread')
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
-                    if posts[post_num]['reblog'] != None:
-                        posts = self.get_thread(posts[post_num]['reblog'])
+                    if not(self.atprotoMode):
+                        if posts[post_num]['reblog'] != None:
+                            posts, post_num = self.get_replies(posts[post_num]['reblog'])
+                        else:
+                            posts, post_num = self.get_replies(posts[post_num])
                     else:
-                        posts = self.get_thread(posts[post_num])
+                        posts, post_num = self.get_replies(posts[post_num])
                     post_num = 0
                 elif key == 'r' :
                     self.telprnt('View Replies')
