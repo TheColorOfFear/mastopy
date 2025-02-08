@@ -5,7 +5,12 @@ from os.path import exists
 from io import StringIO
 from html.parser import HTMLParser
 import os
-import readchar
+try:
+    import readchar
+    doReadChar = True
+except Exception as e:
+    print("readchar error:",e)
+    doReadChar = False
 import urllib.request
 import textwrap
 import re
@@ -18,7 +23,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -505,7 +510,7 @@ class mastopy:
             if key in ['\n', '\r', '']:
                 key = "enter"
             return key
-        else:
+        elif doReadChar:
             #readchar solution, it's okay but I'd need to add every single new key to this and make it the same as the telnet version
             key = readchar.readkey()
             if key == readchar.key.DOWN:
@@ -522,14 +527,13 @@ class mastopy:
                 key = 'esc'
             #print([key])
             return key
-
-            '''
+        else:
             #telinput solution, worse than sshkeyboard but actually works
             key = (await self.telinput()).lower()
             if key == "":
                 key = "enter"
             return key
-            '''
+            
 
 
             '''
