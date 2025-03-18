@@ -18,7 +18,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = True
+telnet = False
 atprotoMode = True #enable atproto mode
 askatproto = True #ask user if they're using the atproto
 
@@ -84,6 +84,7 @@ class mastopy:
                     password,
                     to_file = './mastopy/info/' + name +'_usercred.secret'
                 )
+                return mastodon
         else:
             atprotoClient = atproto.Client()
             username = await self.telinput('Username : ')
@@ -94,6 +95,7 @@ class mastopy:
                 username,
                 password,
             )
+            return atprotoClient
 
     async def usermenu(self):
         global forcelogin, default_account
@@ -410,6 +412,64 @@ class mastopy:
                         self.telprnt('Something went wrong displaying the image.')
                     self.telprnt('\033[0m', end='')
                     post_text.append('\033[0m')
+        elif self.atprotoMode and show and (post.embed != None): #the ATPROTO version of the media stuff
+            #self.telprnt('')
+            #self.telprnt('Post has media')
+            #post_text.append('')
+            #post_text.append('Post has media')
+            for item in post.embed:  #TODO ATPROTO: might not catch all of the possible embeds.
+                #print(item)
+                if type(item) == tuple:
+                    if item[0] != 'py_type' and (item[0] in ['images'] or item[1].py_type.split('#')[0] in ['app.bsky.embed.video', 'app.bsky.embed.images']):
+                        if item[0] == 'images': #TODO ATPROTO: this is a hack. I should be checking for images in a different way, I just don't feel like it ATM.
+                            py_type = 'app.bsky.embed.images'
+                        else:
+                            py_type = item[1].py_type.split('#')[0]
+
+                        imglist = []
+                        if py_type == 'app.bsky.embed.video':
+                            attachment = item[1]
+                            imgurl = attachment.thumbnail
+                            url = attachment.playlist
+                            imglist.append((attachment, url, imgurl))
+                        elif py_type == 'app.bsky.embed.images':
+                            for attachments in item[1]:
+                                attachment = attachments
+                                imgurl = attachment.fullsize
+                                url = attachment.fullsize
+                                imglist.append((attachment, url, imgurl))
+
+
+                        for img in imglist:
+                            attachment = img[0]
+                            url = img[1]
+                            imgurl = img[2]
+                            self.telprnt('')
+                            self.telprnt(url)
+                            self.telprnt(textwrap.fill(str(attachment.alt), self.get_terminal_size()[0]))
+                            post_text.append('')
+                            post_text.append(textwrap.fill(url, self.get_terminal_size()[0]))
+                            post_text.append(textwrap.fill(str(attachment.alt), self.get_terminal_size()[0]))
+                            if self.images and await self.yn_prompt('show image? (y/n) '):
+                                try:
+                                    #big ol table to see what the actual image is:
+                                    imgname = imgurl.split('/')[-1]
+                                    if imgname == 'original':
+                                        imgname = 'original.png' # just assume PNG idk
+                                    urllib.request.urlretrieve(imgurl, './mastopy/resources/images/' + str(post.cid) + '_' + imgname)
+                                    if imgwidth > self.get_terminal_size()[0]:
+                                        img_text = self.print_img('./mastopy/resources/images/' + str(post.cid) + '_' + imgname, printType=self.imgcolour, wid=imgwidthcrunch, ret=True)
+                                    else:
+                                        img_text = self.print_img('./mastopy/resources/images/' + str(post.cid) + '_' + imgname, printType=self.imgcolour, wid=imgwidth, ret=True)
+                                    post_text += img_text.split('\n')[:-1]
+                                    self.telprnt(img_text)
+                                except:
+                                    self.telprnt('Something went wrong displaying the image.')
+                                self.telprnt('\033[0m', end='')
+                                post_text.append('\033[0m')
+                    elif item[0] != 'py_type' and not(item[1].py_type.split('#')[0]) in ['app.bsky.embed.record']:
+                        pass
+
         if not(self.atprotoMode) and show and (post['poll'] != None): #TODO ATPROTO, same as with attachments I just want to get basic posting working
             self.telprnt('\nPost has poll.')
             post_text.append('')
@@ -736,12 +796,12 @@ class mastopy:
                         keys += 'r'
                 else:
                     try: #wrap this in a try/except because it sends a network request
-                        a = self.mastodon.get_post_thread(posts[post_num].uri, 0).thread
+                        a = self.mastodon.get_post_thread(posts[post_num].uri, 0).thread #TODO ATPROTO because I don't think this works how I think it does.
                         if a.parent != None:
                             prompt += '<T>hread, '
                             keys += 't'
                     except:
-                        raise
+                        pass
                     if (posts[post_num].reply_count > 0):
                         prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num].reply_count))
                         keys += 'r'
@@ -1048,48 +1108,64 @@ class mastopy:
         self.hr(minus=7)
         #TODO ATPROTO : 
         #   "View by ID" should be "View by URI"
-        self.telprnt('Timelines: <H>ome, <L>ocal, <F>ederated')
-        self.telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
-        self.telprnt('Search:    <S>earch, search by Hash<T>ag')
+        #   "Home" timeline should be "Following"
+        keys = []
+        if not(self.atprotoMode):
+            self.telprnt('Timelines: <H>ome, <L>ocal, <F>ederated')
+            self.telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
+            self.telprnt('Search:    <S>earch, search by Hash<T>ag')
+            keys += ['h','l','f', 'v','b','c', 's','t']
+        else:
+            self.telprnt('Timelines: <F>ollowing, <D>iscover')
+            self.telprnt('Posts:     <V>iew by URI, <C>reate')
+            keys += ['f','d', 'v','c']
         self.telprnt('User:      <M>y Account')#, <N>otifications')
         self.telprnt('General:   <Q>uit')
         self.hr(minus=7)
-        key = await self.do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
-        try:
-            if key in ['h','l','f']:
+        key = await self.do_menu(keys + ['m', 'q'], '>')
+        try: 
+            if key in ['h','l','f'] and not(self.atprotoMode):
                 if key == 'h':
                     self.telprnt('Home timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
-                        if not(self.atprotoMode):
-                            posts = self.mastodon.timeline_home(limit=int(howmany))
-                        else:
-                            #the following comment gets YOUR posts
-                            # posts = self.mastodon.app.bsky.feed.post.list(self.mastodon.me.did, limit=int(howmany)).records.items() #this should work?
-                            # posts = await self.bskyLRR2post(posts)
-                            posts = await self.bskyFeed2post(self.mastodon.get_timeline(limit=int(howmany)).feed)
-                            #print(posts)
+                        posts = self.mastodon.timeline_home(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
-                elif key =='l': #TODO ATPROTO, other timelines have no use as of yet
+                elif key =='l':
                     self.telprnt('Local timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
                         posts = self.mastodon.timeline_local(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
-                elif key =='f': #TODO ATPROTO, other timelines have no use as of yet
+                elif key =='f':
                     print('Federated timeline')
                     howmany = await self.telinput("how many posts to load? ")
                     if howmany.isdigit():
                         posts = self.mastodon.timeline_public(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
+            elif key in ['f','d'] and (self.atprotoMode):
+                if key == 'f':
+                    self.telprnt('Following')
+                    howmany = await self.telinput("how many posts to load? ")
+                    if howmany.isdigit():
+                        posts = await self.bskyFeed2post(self.mastodon.get_timeline(limit=int(howmany)).feed)
+                        await self.display_posts(posts)
+                    return True
+                elif key =='d': #TODO ATPROTO, find a better way to get the discover feed than just hardcoding it.
+                    # at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot <-- the bsky "discover" feed
+                    self.telprnt('Discover')
+                    howmany = await self.telinput("how many posts to load? ")
+                    if howmany.isdigit():
+                        posts = await self.bskyFeed2post(self.mastodon.get_timeline('at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot', limit=int(howmany)).feed)
+                        await self.display_posts(posts)
+                    return True
             elif key in ['v','b','c']:
                 if key == 'v':
                     self.telprnt('View post ID: ',end='')
                     id = await self.telinput('')
-                    #id = 'at://did:plc:kvwvcn5iqfooopmyzvb4qzba/app.bsky.feed.post/3k2yihcrp6f2c'
                     if (id != ''):
                         if not(self.atprotoMode):
                             post = [self.mastodon.status(id)]
@@ -1099,11 +1175,12 @@ class mastopy:
                         await self.display_posts(post)
                     return True
                 elif key =='b':  #TODO ATPROTO, bsky doesn't have bookmarks
-                    self.telprnt('Bookmarks')
-                    howmany = await self.telinput("how many posts to load? ")
-                    if howmany.isdigit():
-                        posts = self.mastodon.bookmarks(limit=int(howmany))
-                        await self.display_posts(posts)
+                    if not(self.atprotoMode):
+                        self.telprnt('Bookmarks')
+                        howmany = await self.telinput("how many posts to load? ")
+                        if howmany.isdigit():
+                            posts = self.mastodon.bookmarks(limit=int(howmany))
+                            await self.display_posts(posts)
                     return True
                 elif key =='c':
                     self.telprnt('Post')
@@ -1135,10 +1212,9 @@ class mastopy:
                     self.telprnt('My Account')
                     if not(self.atprotoMode):
                         account = self.mastodon.me()
-                        await (account)
                     else:
                         account = self.mastodon.get_profile(self.mastodon.me.did)
-                        self.display_account(account)
+                    self.display_account(account)
                     return True
             #    elif key == 'n':
             #        telprnt('Notifications')
@@ -1151,6 +1227,9 @@ class mastopy:
         except mastodonpy.MastodonNetworkError:
             self.telprnt('Network Error, Exiting.')
             return False
+        except:
+            if not(telnet):
+                raise
 
     def get_replies(self, post):
         if not(self.atprotoMode):
@@ -1214,19 +1293,19 @@ class mastopy:
                 self.telprnt('Colour')
         
         if askatproto:
-            self.atprotoMode = await self.yn_prompt("AtProto account? ")
+            self.atprotoMode = await self.yn_prompt("AtProto account? (y/n) ")
         self.mastodon = await self.usermenu()
-
+        
         while True and not(self.mastodon == None):
             if not(await self.main_menu()):
                 break
         if telnet:
             self.tnwrite.close()
 
-logo = """\
-.  .._. _____ _ ._  _ .  .
-|\\/||_|/__ | / \\| \\/ \\|\\ |
-|  || |__/ | \\_/|_/\\_/| \\|\n\
+logo = """
+.  . ._.  ___ ___  _  __. . .
+|\\/| |_| /___  |  / \\ |_| |_|
+|  | | | ___/  |  \\_/ |   __|
 """
 globalid = 0
 if telnet:
