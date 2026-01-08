@@ -622,8 +622,10 @@ class mastopy:
                         self.mastodon.account_follow(account['id'])
         elif key == 'v':
             self.telprnt('View Posts')
-            posts = self.mastodon.account_statuses(account['id'], limit=int(await self.telinput("how many posts to load? ")))
-            return posts
+            numposts = await self.telinput("how many posts to load? ")
+            if numposts.isdigit():
+                posts = self.mastodon.account_statuses(account['id'], limit=int(numposts))
+                return posts
         return None
         
 
