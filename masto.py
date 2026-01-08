@@ -66,24 +66,45 @@ class mastopy:
             self.telprnt("")
             appinfo = await self.app_create(None, api_base_url)
             mastodon = Mastodon(api_base_url = api_base_url, client_id = appinfo[0], client_secret = appinfo[1])
-            email = await self.telinput('Email Address : ')
+    ## Old code for email/pw login
+            #email = await self.telinput('Email Address : ')
+            #self.telprnt("")
+            #password = await self.telgetpass('Password : ')
+            #self.telprnt("")
+            #mastodon.log_in(
+            #    email,
+            #    password,
+            #)
+            self.telprnt("Go to the following URL in a browser where you're logged into mastodon, and save the code : ")
             self.telprnt("")
-            password = await self.telgetpass('Password : ')
+            self.telprnt(mastodon.auth_request_url())
+            self.telprnt("")
+            code = await self.telinput('OAuth code : ')
             self.telprnt("")
             mastodon.log_in(
-                email,
-                password,
+                code=code,
             )
             return mastodon
         else:
             mastodon = Mastodon(client_id = './mastopy/info/' + name + '_clientcred.secret')
-            email = await self.telinput('Email Address : ')
+            ## Old code for email/pw login
+            #email = await self.telinput('Email Address : ')
+            #self.telprnt("")
+            #password = await self.telgetpass('Password : ')
+            #self.telprnt("")
+            #mastodon.log_in(
+            #    email,
+            #    password,
+            #    to_file = './mastopy/info/' + name +'_usercred.secret'
+            #)
+            self.telprnt("Go to the following URL in a browser where you're logged into mastodon to log in : ")
             self.telprnt("")
-            password = await self.telgetpass('Password : ')
+            self.telprnt(mastodon.auth_request_url())
+            self.telprnt("")
+            code = await self.telinput('OAuth code : ')
             self.telprnt("")
             mastodon.log_in(
-                email,
-                password,
+                code=code,
                 to_file = './mastopy/info/' + name +'_usercred.secret'
             )
 
