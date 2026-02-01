@@ -23,7 +23,7 @@ images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
 scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
-telnet = False
+telnet = True
 
 ##account settings
 default_account = 'default' #set to None for the multi-user menu
@@ -1091,7 +1091,13 @@ if telnet:
         thisid = globalid
         print('connected', thisid)
         thisShell = mastopy(reader, writer)
-        await thisShell.begin()
+        try:
+            await thisShell.begin()
+        except:
+            # Close the telnet shell BEFORE we raise the error
+            thisShell.telprnt('Something went wrong, disconnecting you...')
+            thisShell.tnwrite.close()
+            raise
         print('disconnected', thisid)
     
     loop = asyncio.get_event_loop()
