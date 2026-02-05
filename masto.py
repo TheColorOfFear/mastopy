@@ -330,7 +330,7 @@ class mastopy:
             out = out.replace('█', '@').replace('▀', '=')
         return out
     
-    # Needed for mastopy.strip_tags()
+    # Needed for `mastopy.strip_tags()`
     class MLStripper(HTMLParser):
         def __init__(self):
             super().__init__()
@@ -344,6 +344,7 @@ class mastopy:
             return self.text.getvalue()
     
     # takes HTML input and (very shoddily) clears out all the tags
+    # `html`    : html data to strip
     def strip_tags(self, html):
         # make the parser
         parser = HTMLParser()
@@ -353,12 +354,16 @@ class mastopy:
         return s.get_data()
     
     # remove ansi escape sequences from a string
+    # `line`    : ansi line to strip escape sequences from
     def escape_ansi(self, line):
         # regex from https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python#14693789
         ansi_escape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', line)
     
     # print a horizontal line
+    # `char`    : content of the line (---- or ==== or whatever )
+    # `minus`   : offset from the end of the line
+    # `length`  : if set, make the line exactly that long.
     def hr(self, char='-', minus=0, length=-1) :
         if length == -1:
             # if `length` is unset then we do the width minus `minus`
@@ -371,10 +376,12 @@ class mastopy:
         # newline!
         self.telprnt('')
     
-    ##TODO Documentation
+    # Get the length, in lines, of a given post
+    # `post_list`   : the post, passed as a list of strings representing lines
     def get_post_size(self, post_list):
         global scroll_type
         if scroll_type == 'pager':
+            # if we're using the 'pager' scroll type, do some extra stuff
             text_list = []
             for i in range(len(post_list)):
                 if len(post_list[i]) == 0 or not(post_list[i][0] == '\x1b'):
@@ -384,6 +391,7 @@ class mastopy:
             text_list = text.split('\n')
             return len(text_list)
         else:
+            # otherwise just return the length of the list we were passed
             return len(post_list)
     
     ##TODO Documentation
@@ -454,6 +462,9 @@ class mastopy:
     
     ##TODO Documentation
     async def display_post(self, post) :
+        ##TODO Remake this so that I'm not `telprnt`ing *and* adding to `post_text`
+        #       - add everything to `post_text` and then print it?
+        #       - make a subfunction to do both at once?
         global imgwidth, imgwidthcrunch
         show = True
         account = post['account']
@@ -556,18 +567,31 @@ class mastopy:
             post_text_final += post_text[i].split('\n')
         return(post_text_final)
     
-    ##TODO Documentation
+    # Display a profile picture (also used for account banners )
+    # `account` : the account dict to get the image from
+    # `request` : where in the account dict to look for the image
+    # `width`   : how wide to make the image
+    # `deco`    : fancy shmancy outline for our image
     def display_pfp(self, account, request='avatar_static', width = 10, deco = True):
+        # request the pfp and save it to a file
+        ##TODO we just assume it's a .png which isn't the best
         urllib.request.urlretrieve(account[request], './mastopy/resources/pfps/' + str(account['id']) + request +'.png')
+        # convert it to text with `print_img()`
         pfp = self.print_img('./mastopy/resources/pfps/' + str(account['id']) +  request +'.png', wid=width, ret=True, printType=self.imgcolour).split('\n')
+        
+        # combine the deco (if any) with the image
         out = ''
         if deco:
             out += ' '
             for i in range(len(self.escape_ansi(pfp[1]))):
                 out += '-'
         for line in pfp[1:-1]:
+            # if the line has any printable characters in it, add the deco
+            ##WHAT: why are we doing this at all when in theory this should 
+            #       Just Work(tm) without it?
             if len(self.escape_ansi(line)) > 0:
-                #telprnt(len(escape_ansi(line)), [line], [escape_ansi(line)])
+                ##TODO this assumes the client supports ANSI (`\033[0m`) which 
+                #       might not always be the case
                 if deco:
                     out += '\n|' + line + '\033[0m|'
                 else:
@@ -576,6 +600,8 @@ class mastopy:
         if deco:
             for i in range(len(self.escape_ansi(pfp[1]))):
                 out += '-'
+        ##TODO this assumes the client supports ANSI (`\033[0m`) which 
+        #       might not always be the case
         out += '\033[0m'
         return out
     
@@ -674,7 +700,7 @@ class mastopy:
                 return key
             '''
     
-    ##TODO Documentation
+    # easy shorthand for `do_menu()`, and return True/False on Y/N
     async def yn_prompt(self, prompt) :
         key = await self.do_menu(['y','n'], prompt)
         self.telprnt(key)
@@ -938,81 +964,101 @@ class mastopy:
                 if not(new_status == None):
                     posts[post_num] = new_status
     
-    ##TODO Documentation
+    # menu/loop for writing a status as the logged in user.
+    # `in_reply_to` : the post, passed as a dict, that we're replying to
     async def write_status(self, in_reply_to = None):
         global telnet
-        if telnet:
-            self.telprnt('Entering message. Word wrap will give you')
-            self.telprnt('soft linebreaks. Pressing the "enter" key')
-            self.telprnt('will give you a hard linebreak and open  ')
-            self.telprnt('the menu, from which you can press "c" to')
-            self.telprnt('continue writing the message.            ')
-            self.telprnt('press "enter" and then "s" when finished.\n')
-        else:
-            self.telprnt('Entering message. Word wrap will give you')
-            self.telprnt('soft linebreaks. Pressing the "enter" key')
-            self.telprnt('will give you a hard linebreak. Press')
-            self.telprnt('"enter" twice when finished.\n')
-        postList = []
-        lastline = 'tmp'
-        while lastline != '':
-            lastline = (await self.telinput())
-            if lastline != '':
-                postList.append(lastline)
-        post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+        #print control info
+        self.telprnt('Entering message. Pressing return will   ')
+        self.telprnt('give a hard line break. Pressing return  ')
+        self.telprnt('on an empty line will open the menu, but ')
+        self.telprnt('will not give a second hard line break.  ')
+        self.telprnt('Press S in the menu to post your status. \n')
+        
+        # our function to add to the post
+        async def write_text(postList=[]):
+            postList_tmp = postList
+            lastline = 'tmp'
+            while lastline != '':
+                lastline = (await self.telinput())
+                if lastline != '':
+                    postList_tmp.append(lastline)
+            post = ''.join([('\n' + line) for line in postList_tmp]).lstrip('\n')
+            return postList_tmp, post
+        
+        # start by letting the user write a bunch
+        postList, post = await write_text()
+        
+        # init a couple of vars to defaults (no CW, default visibility)
         cw_string = '   add content <W>arning\n'
         cw = None
         visibility = None
+        # we'll use setting `in_menu` to `False` to leave the array, so set to `True` here
         in_menu = True
         while in_menu:
+            # do our menu
             key = await self.do_menu(['?','a','c','s','p','w','v'], '\nEntry command (? for options) -> ')
+            # if the user wanted the options, print the options
             if key == '?':
                 self.telprnt('\n' +
                     'One of...\n' +
                     '   <A>bort\n' +
                     '   <C>ontinue\n' +
                     '   post <S>tatus\n' +
-                    '   <P>rint formatted\n' +
+                    '   <P>rint post\n' +
                     cw_string +
                     '   change <V>isibility\n')
+            # if the user wanted to quit, y/n prompt them and then quit if they're sure.
             elif key == 'a':
                 self.telprnt('Abort')
                 if await self.yn_prompt('Are you sure? '):
+                    # leave the menu
                     in_menu = False
+            # continue typing, this will call `write_text()` again
             elif key == 'c':
                 self.telprnt('Continue')
-                postList = [post]
-                lastline = 'tmp'
-                while lastline != '':
-                    lastline = (await self.telinput())
-                    if lastline != '':
-                        postList.append(lastline)
-                post = ''.join(('\n' + line) for line in postList).lstrip('\n')
+                postList, post = await write_text(postList)
+            # post the reply after a y/n "are you sure" prompt, then leave the menu
             elif key == 's':
                 self.telprnt('Post status')
-                if in_reply_to == None:
-                    self.mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
-                else:
-                    self.mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
-                in_menu = False
+                if await self.yn_prompt('Are you sure? '):
+                    if in_reply_to == None:
+                        # if we aren't replying to anyone, post the status like normal.
+                        self.mastodon.status_post(post, visibility=visibility, spoiler_text=cw)
+                    else:
+                        # if we are replying to someone, post the status with `in_reply_to` as an arg,
+                        #   and with `mastodon.status_reply`
+                        self.mastodon.status_reply(in_reply_to, post, visibility=visibility, spoiler_text=cw)
+                    # leave the menu
+                    in_menu = False
+            # literally just print the post
             elif key == 'p':
-                self.telprnt('Print formatted')
+                self.telprnt('Print post')
                 self.telprnt(post)
+            # change or unset the cw
             elif key == 'w':
                 self.telprnt('Add CW')
                 self.telprnt('Current CW is: ' + str(cw))
                 cw = await self.telinput('Content warning (press enter for none) : ')
-                if cw == '':
-                    cw = None
+                # change the cw dialogue because we have a cw now
                 cw_string = '   change content <W>arning\n'
+                if cw == '':
+                    # if they don't want a CW, set `cw` to `None` because the post function takes `None`
+                    #   to mean "don't add a cw to this post ! !"
+                    cw = None
+                    # also reset the cw dialogue because we in fact do NOT have a cw
+                    cw_string = '   add content <W>arning\n'
                 self.telprnt('')
+            # change the post's visibility
             elif key == 'v':
                 self.telprnt('Change Visibility')
                 self.telprnt('Current Visibility is: ', end='')
                 if visibility == None:
+                    # this exception is because 'default' is `None` when passed to the api function.
                     self.telprnt('default')
                 else:
                     self.telprnt(visibility)
+                # print and do a menu, where the options are literally just the API's options
                 self.telprnt('Change to:\n  <1> Default\n  <2> Public\n  <3> Unlisted\n  <4> Private\n  <5> Direct')
                 key = await self.do_menu(['1','2','3','4','5'],'> ')
                 self.telprnt(key)
@@ -1027,122 +1073,170 @@ class mastopy:
                 if key == '5':
                     visibility = 'direct'
     
-    ##TODO Documentation
+    # check for a valid number of posts for a request
+    def valid_numposts(self, number):
+        return number.isdigit() and int(number) > 0
+    
+    # The top-level menu, from which the user gets to a bunch of other stuff.
+    # if we return `True`, we indicate that we want to keep looping
+    # if we return `False`, we indicate that we want to quit
     async def main_menu(self):
+        # print our menu and setup our menu options
+        opts = []
         self.hr(minus=7)
-        self.telprnt('Timelines: <H>ome, <L>ocal, <F>ederated')
-        self.telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate')
-        self.telprnt('Search:    <S>earch, search by Hash<T>ag')
-        self.telprnt('User:      <M>y Account')#, <N>otifications')
-        self.telprnt('General:   <Q>uit')
+        self.telprnt('Timelines: <H>ome, <L>ocal, <F>ederated');        opts += ['h','l','f']
+        self.telprnt('Posts:     <V>iew by ID, <B>ookmarks, <C>reate'); opts += ['v','b','c']
+        self.telprnt('Search:    <S>earch, search by Hash<T>ag');       opts += ['s','t']
+        self.telprnt('User:      <M>y Account');                        opts += ['m'] #, <N>otifications')
+        self.telprnt('General:   <Q>uit');                              opts += ['q']
         self.hr(minus=7)
-        key = await self.do_menu(['h','l','f', 'v','b','c', 's','t', 'm', 'q'], '>')
+        
+        # do our menu
+        key = await self.do_menu(opts, '>')
+        # This is wrapped in a try/except because if a network error happens we want to be able to deal.
         try:
+            # first row of the menu, various timelines
             if key in ['h','l','f']:
                 if key == 'h':
                     self.telprnt('Home timeline')
                     howmany = await self.telinput("how many posts to load? ")
-                    if howmany.isdigit():
+                    if self.valid_numposts(howmany): # validate numposts
+                        # `mastodon.timeline_home` is the home timeline
                         posts = self.mastodon.timeline_home(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
                 elif key =='l':
                     self.telprnt('Local timeline')
                     howmany = await self.telinput("how many posts to load? ")
-                    if howmany.isdigit():
+                    if self.valid_numposts(howmany): # validate numposts
+                        # `mastodon.timeline_local` is the local timeline
                         posts = self.mastodon.timeline_local(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
                 elif key =='f':
                     self.telprnt('Federated timeline')
                     howmany = await self.telinput("how many posts to load? ")
-                    if howmany.isdigit():
+                    if self.valid_numposts(howmany): # validate numposts
+                        # `mastodon.timeline_public` is the public timeline
                         posts = self.mastodon.timeline_public(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
+            # second row of the menu, post utils
             elif key in ['v','b','c']:
+                # view a specific post 
                 if key == 'v':
                     self.telprnt('View post ID: ',end='')
                     id = await self.telinput('')
+                    post = None
                     if (id != ''):
-                        post = [self.mastodon.status(id)]
+                        try:
+                            post = [self.mastodon.status(id)]
+                        except mastodonpy.MastodonNotFoundError:
+                            # if we couldn't find the post:
+                            self.telprnt('Err: post with that id not found')
+                            post = None
+                    
+                    if post != None:
                         await self.display_posts(post)
                     return True
+                # view your bookmarks
                 elif key =='b':
                     self.telprnt('Bookmarks')
                     howmany = await self.telinput("how many posts to load? ")
-                    if howmany.isdigit():
+                    if self.valid_numposts(howmany): # validate numposts
+                        # `mastodon.bookmarks` is the ""timeline"" with the user bookmarks
                         posts = self.mastodon.bookmarks(limit=int(howmany))
                         await self.display_posts(posts)
                     return True
+                # create a post
                 elif key =='c':
                     self.telprnt('Post')
                     await self.write_status()
                     return True
+            # third row of menu, search utils
             elif key in ['s','t']:
+                # search posts normally
                 if key == 's':
                     self.telprnt('Search: ',end='')
                     search_term = await self.telinput('')
                     if (search_term != ''):
+                        ##TODO verify that you can't add a limit to a `mastodon.search()`
                         posts = self.mastodon.search(search_term, result_type='statuses')
                         posts = posts['statuses']
+                        # make sure we have posts to display
                         if len(posts) > 0:
                             await self.display_posts(posts)
                         else:
                             self.telprnt('No Search Results')
                     return True
+                # search posts by hashtag
                 elif key == 't':
                     self.telprnt('View posts by Hashtag: ',end='')
                     hashtag = await self.telinput('')
                     if (hashtag != ''):
                         howmany = await self.telinput("how many posts to load? ")
-                        if howmany.isdigit():
+                        if self.valid_numposts(howmany): # validate howmany
                             posts = self.mastodon.timeline_hashtag(hashtag, limit=int(howmany))
-                            await self.display_posts(posts)
+                            # make sure we have posts to display
+                            if len(posts) > 0:
+                                await self.display_posts(posts)
+                            else:
+                                self.telprnt('No Search Results')
                     return True
+            # fourth row of menu, account utils
             elif key in ['m']:#,'n']:
+                # your account info
                 if key == 'm':
+                    # Doesn't enter the account menu, just displays the account.
                     self.telprnt('My Account')
                     account = self.mastodon.me()
                     self.display_account(account)
                     return True
-            #    elif key == 'n':
-            #        telprnt('Notifications')
-            #        posts = mastodon.notifications(types='status')
-            #        await display_posts(posts)
-            #        return True
+                """
+                # your notifs
+                ##TODO finish this
+                elif key == 'n':
+                    telprnt('Notifications')
+                    posts = mastodon.notifications(types='status')
+                    await display_posts(posts)
+                    return True"""
+            # fifth row, just quit for now
             elif key == 'q':
                 self.telprnt('Quit')
+                # return `False` to quit
                 return False
         except mastodonpy.MastodonNetworkError:
-            self.telprnt('Network Error, Exiting.')
-            return False
+            # if we encounter a network error, give the user the option to quit.
+            self.telprnt('Network Error.')
+            return not(await self.yn_prompt('Quit? (y/n) '));
     
-    ##TODO Documentation
+    # Get the thread leading up to a post
+    # `post`    : a post, passed as a dict
     def get_thread(self, post):
-        thread = []
-        #this_post = post
-        #while (this_post['in_reply_to_id'] != None):
-        #    thread.insert(0,this_post)
-        #    this_post = mastodon.status(this_post['in_reply_to_id'])
-        #thread.insert(0,this_post)
+        # get the context and then put our post at the end of the returned thread
         thread_tmp = self.mastodon.status_context(post['id'])
         thread = thread_tmp['ancestors']
         thread.append(post)
-        #thread += thread_tmp['descendants']
         return thread
     
-    ##TODO Documentation
+    # Get the replies of a post
+    # `post`    : a post, passed as a dict
     def get_replies(self, post):
-        replies = []
+        # get the context of our post (which has the parent and replies)
         replies_tmp = self.mastodon.status_context(post['id'])
+        # get the thread before our post
         thread = replies_tmp['ancestors']
+        # get *all* the replies to our post
         replies = replies_tmp['descendants']
+        # limit our replies to the direct children of our `post`
         for i in range(len(replies) - 1, -1, -1):
             if replies[i]['in_reply_to_id'] != post['id']:
                 replies.pop(i)
+        # all the posts we're going to return will be in `replies_full`
         replies_full = []
         replies_full += thread
+        # the post that we want to focus on is going to be one after our thread. because
+        # python is zero-indexed we can just set the focused post to the length of `replies_full`
         post_num = len(replies_full)
         replies_full.append(post)
         replies_full += replies
@@ -1154,7 +1248,7 @@ class mastopy:
         self.tnread = reader
         self.tnwrite = writer
     
-    # the initialization function.
+    # set everything up and hop into the menu
     async def begin(self):
         global telnet, imgcolour, images, askimages
         name = 'default' #default name
@@ -1169,6 +1263,7 @@ class mastopy:
             self.telprnt('Press your backspace key ', end='')
             self.backspace = await self.get_input()
             self.telprnt("")
+            ##TODO ask user for term width if telnet
         
         # ask the user to config stuff
         if askimages:
@@ -1204,14 +1299,18 @@ logo = """\
 |\\/||_|/__ | / \\| \\/ \\|\\ |
 |  || |__/ | \\_/|_/\\_/| \\|\n\
 """
+# var to keep track of our telnet clients PURELY for logs
 globalid = 0
 if telnet:
+    # server open
     print('ready')
     async def shell(reader, writer):
         global globalid
+        # print which client we are on connect
         globalid += 1
         thisid = globalid
         print('connected', thisid)
+        # init with the telnet reader and writer
         thisShell = mastopy(reader, writer)
         try:
             await thisShell.begin()
@@ -1220,14 +1319,18 @@ if telnet:
             thisShell.telprnt('Something went wrong, disconnecting you...')
             thisShell.tnwrite.close()
             raise
+        # print which client we are on d/c as well
         print('disconnected', thisid)
     
+    # async + telnet stuff
     loop = asyncio.get_event_loop()
     coro = telnetlib3.create_server(port=6023, shell=shell, timeout=False)
     server = loop.run_until_complete(coro)
     loop.run_until_complete(server.wait_closed()) 
 else:
+    # if we aren't telnet, then don't init with a reader or writer
     thisShell = mastopy(None, None)
+    # async stuff
     loop = asyncio.get_event_loop()
     while True:
         if not(loop.run_until_complete(thisShell.begin())):
