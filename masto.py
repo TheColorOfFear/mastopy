@@ -760,78 +760,128 @@ class mastopy:
                 return posts
         return None
     
-    ##TODO Documentation
-    async def display_posts(self, posts_in, section_name='') :
+    # display a list of posts
+    # `posts_in`    : a list of post dicts
+    # `prompt`      : an optional string to display before the prompt
+    async def display_posts(self, posts_in, prompt='') :
+        # grab the feature toggles
         global quotes, scrolling
+        
+        # setup prompt
+        section_name = prompt
+        # start on the 0th post
         post_num = 0
+        # initialize our post list to the posts we were passed
         posts = posts_in
+        # setup our archive for when we need to go deeper
         post_archive = []
         post_num_archive = []
+        # "do we want to display the post the next time the menu loops"? the answer right now is YES
         show_post = True
+        # `while True` because we'll use a `break` to exit this function.
         while True :
+            # double newline for formatting
             self.telprnt('\n\n',end='')
+            # if we're showing the post, show the post (and recieve `post_text_list` as a special treat for later ;3 )
             if show_post:
                 post_text_list = await self.display_post(posts[post_num])
+            # reset `show_post` for next loop
             show_post = True
+            # hr for formatting
             self.hr(minus=7)
-            keys = ['s', '?', 'v']
             
+            # - -BEGIN THE MENU- -
+            #initialize menu options
+            keys = []
+            
+            # building our prompt!
             prompt=''
+            # add the `section_name`
             if section_name != '':
                 prompt += (section_name + ' | ')
+            # where are we
             prompt += str(post_num + 1) + '/' + str(len(posts)) + ' | '
+            # interact submenu
             prompt += '<I>nteract, '
             keys += 'i'
+            # only show navigation if we could possibly navigate that way
             if (post_num != 0):
                 prompt += '<P>revious, '
                 keys += 'p'
             if (post_num < len(posts)-1):
                 prompt += '<N>ext, '
                 keys += 'n'
-            prompt += '<S>top, <V>iew, <?>help : '
-            key = await self.do_menu(keys, prompt)
+            # full quit, view submenu, and a debug feller
+            prompt += '<S>top, <V>iew : ' # <?> help 
+            keys += ['s', '?', 'v']
             
+            # get the selection, and do the menu: 
+            key = await self.do_menu(keys, prompt)
+            # set `new_status` to None for later
+            new_status = None
+            # stop the loop
             if key == 's' : 
                 self.telprnt('Stop')
                 break
+            # display debug info
             elif key == '?' :
+                # selected post dict
                 self.telprnt(posts[post_num])
+                # a stripped version of our post's content
                 self.telprnt(self.strip_tags(posts[post_num]['content']).split('\n')[-1])
+                # wait for a return press
                 await self.get_input()
+            # go to next post
             elif key == 'n' :
                 self.telprnt('Next')
                 post_num += 1
+            # go to previous post
             elif key == 'p' :
                 self.telprnt('Previous')
                 post_num -= 1
+            # 'view' submenu
             elif key == 'v' :
                 self.telprnt('View')
                 
                 prompt = ''
-                keys = ['enter', 'a', 'f']
+                keys = []
+                # if the post is too tall for our screen, and scrolling is enabled, give the option to scroll
                 if scrolling and self.get_post_size(post_text_list) > self.get_terminal_size()[1]:
                     prompt += '<P>ost, '
                     keys += 'p'
+                # if there's a thread above us, or if this is a reblogged post and there's a 
+                #   thread above /that/ post, give the option for the thread.
                 if (posts[post_num]['in_reply_to_id'] != None) or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['in_reply_to_id'] != None):
                     prompt += '<T>hread, '
                     keys += 't'
+                # if there're replies below us, or if this is a reblogged post and there're 
+                #   replies below /that/ post, give the option for the replies (and include the number of replies )
                 if (posts[post_num]['replies_count'] > 0)      or (posts[post_num]['reblog'] != None and posts[post_num]['reblog']['replies_count'] > 0):
                     if posts[post_num]['reblog'] != None:
                         prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['reblog']['replies_count']))
                     else:
                         prompt += '<R>eplies ({replies}), '.format(replies = str(posts[post_num]['replies_count']))
                     keys += 'r'
+                # if we've incepted, give the option to go back a layer
                 if len(post_archive) > 0 :
                     prompt += '<B>ack, '
                     keys += 'b'
+                # if the quotes feature is enabled, and we detect a quoted post, give the option for the quote post.
+                ##TODO fix up the quote post feature
                 if quotes and self.strip_tags(posts[post_num]['content']).split('\n')[-1][:8] == 'RE: http':
                     prompt += '<Q>uoted Post, '
                     keys += 'q'
+                # option to view the poster's account, and option to re-get the post
                 prompt += '<A>ccount, Re<F>resh Post : '
-                key = await self.do_menu(keys, prompt)
+                # "enter" will just leave the sub menu
+                keys += ['enter', 'a', 'f']
                 
+                # get the selection and do the menu:
+                key = await self.do_menu(keys, prompt)
+                # view the account
                 if key == 'a' :
                     self.telprnt('View Account')
+                    # send the account to the `account_menu`, then if we get posts back, hit 'em with an "inception"
                     account = posts[post_num]['account']
                     newposts = await self.account_menu(account)
                     if newposts != None:
@@ -839,32 +889,41 @@ class mastopy:
                         post_num_archive.insert(0, post_num)
                         posts = newposts
                         post_num = 0
+                # scroll the post
                 elif key == 'p':
                     self.telprnt('View Post')
                     await self.scroll(post_text_list)
                     show_post = False
+                # go up an inception layer
                 elif key == 'b':
                     self.telprnt('Go Back')
                     posts = post_archive.pop(0)
                     post_num = post_num_archive.pop(0)
+                # view the thread
                 elif key == 't' :
                     self.telprnt('View Thread')
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
+                    # get and set the thread posts
                     if posts[post_num]['reblog'] != None:
                         posts = self.get_thread(posts[post_num]['reblog'])
                     else:
                         posts = self.get_thread(posts[post_num])
+                    # set position to the top of the thread
                     post_num = 0
+                # view the replies
                 elif key == 'r' :
                     self.telprnt('View Replies')
                     post_archive.insert(0, posts)
                     post_num_archive.insert(0, post_num)
+                    # get the `posts` and the `post_num`
                     if posts[post_num]['reblog'] != None:
                         posts, post_num = self.get_replies(posts[post_num]['reblog'])
                     else:
                         posts, post_num = self.get_replies(posts[post_num])
+                # view the quoted post
                 elif key == 'q' :
+                    ##TODO this is actually kinda borked, fixme?
                     self.telprnt('View Quoted Post')
                     quotedURL = self.strip_tags(posts[post_num]['content']).split('\n')[-1].split('RE: ')[1]
                     newposts = self.mastodon.search(quotedURL, result_type='statuses')
@@ -876,6 +935,7 @@ class mastopy:
                         post_num = 0
                     else:
                         self.telprnt('Quoted Post Not Found')
+                # refresh the post
                 elif key == 'f':
                     self.telprnt('Refresh Post')
                     try:
@@ -883,30 +943,49 @@ class mastopy:
                     except mastodonpy.MastodonNetworkError:
                         self.telprnt('Network Error, Couldn\'t refresh post.')
                         new_status = None
+            # 'interact' submenu
             elif key == 'i':
                 self.telprnt('Interact')
                 prompt = ''
-                #prompt = '<L>ike, <R>epost, <B>ookmark :'
+                # all of our inputs are about the same EVERY SINGLE TIME so we don't have do do much of an additive list ! yippee !
                 valid_keys = ['enter', 'l', 'r', 'b', 'f', 'c']
+                # like prompt
                 if posts[post_num]['favourited']:
                         prompt += 'Un<L>ike, '
                 else:
                     prompt += '<L>ike, '
+                # repost prompt
                 if posts[post_num]['reblogged']:
                     prompt += 'Un<R>epost, '
                 else:
                     prompt += '<R>epost, '
+                #bookmark prompt
                 if posts[post_num]['bookmarked']:
                     prompt += 'Un<B>ookmark, '
                 else:
                     prompt += '<B>ookmark, '
-                if posts[post_num]['poll'] != None:
-                    if not(posts[post_num]['poll']['expired'] or posts[post_num]['poll']['voted']):
+                # poll prompt
+                repoll = False
+                try: #check the reblog for a poll, if it exists
+                    repoll = posts[post_num]['reblog']['poll'] != None
+                except:
+                    pass
+                if posts[post_num]['poll'] != None or repoll:
+                    # choose the poll
+                    if repoll:
+                        poll = posts[post_num]['reblog']['poll']
+                    else:
+                        poll = posts[post_num]['poll']
+                    # if poll isn't expired, give the option to interact with it
+                    if not(poll['expired'] or poll['voted']):
                         prompt += '<P>oll, '
                         valid_keys.append('p')
                 prompt += ' Re<F>resh Post, <C>omment : '
+                
+                # do the menu
                 key = await self.do_menu(valid_keys, prompt)
                 new_status = None
+                # bookmarks
                 if key == 'b':
                     if posts[post_num]['bookmarked']:
                         self.telprnt('Remove Bookmark')
@@ -914,27 +993,33 @@ class mastopy:
                     else:
                         self.telprnt('Bookmark Post')
                         new_status = self.mastodon.status_bookmark(posts[post_num]['id'])
+                # interact with poll
                 elif key == 'p':
                     self.telprnt('Vote in Poll')
                     options = ['enter']
-                    for i in range(len(posts[post_num]['poll']['options'])):
+                    # choose the poll
+                    if repoll:
+                        poll = posts[post_num]['reblog']['poll']
+                    else:
+                        poll = posts[post_num]['poll']
+                    # generate and print our poll options
+                    for i in range(len(poll['options'])):
                         options.append(str(i + 1)) # might break things if you can make polls with more than 9 options but I don't think you can?
                         self.telprnt(str(i + 1) + '.) ', end='')
-                        self.telprnt(posts[post_num]['poll']['options'][i]['title'])
+                        self.telprnt(poll['options'][i]['title'])
                     key = await self.do_menu(options, '> ')
                     if key != 'enter':
                         self.telprnt(key)
                         new_status = posts[post_num]
-                        pollresponse = self.mastodon.poll_vote(posts[post_num]['poll']['id'], (int(key) - 1))
-                        #print(pollresponse) # for some reason this is always None as far as I can tell so as a quick fix, just refresh the page
-                        #posts[post_num]['poll'] = pollresponse # don't do what the API says I should be able to do, instead 
-                        try:
-                            new_status = self.mastodon.status(posts[post_num]['id'])
-                        except mastodonpy.MastodonNetworkError:
-                            #print('Network Error, Couldn\'t refresh post.')
-                            new_status = None
+                        pollresponse = self.mastodon.poll_vote(poll['id'], (int(key) - 1))
+                        # replace the poll in our post with the updated poll we got from `mastodon.poll_vote`
+                        if repoll:
+                            poll = posts[post_num]['reblog']['poll'] = pollresponse
+                        else:
+                            poll = posts[post_num]['poll'] = pollresponse
                     else:
                         self.telprnt('')
+                # likes
                 elif key == 'l':
                     if posts[post_num]['favourited']:
                         self.telprnt('Remove Like')
@@ -942,6 +1027,7 @@ class mastopy:
                     else:
                         self.telprnt('Like Post')
                         new_status = self.mastodon.status_favourite(posts[post_num]['id'])
+                # boosts
                 elif key == 'r':
                     if posts[post_num]['reblogged']:
                         self.telprnt('Remove Boost')
@@ -951,6 +1037,7 @@ class mastopy:
                         self.telprnt('Boost Post')
                         self.mastodon.status_reblog(posts[post_num]['id'])
                         new_status = self.mastodon.status(posts[post_num]['id'])
+                # refresh post
                 elif key == 'f':
                     self.telprnt('Refresh Post')
                     try:
@@ -958,11 +1045,15 @@ class mastopy:
                     except mastodonpy.MastodonNetworkError:
                         self.telprnt('Network Error, Couldn\'t refresh post.')
                         new_status = None
+                # comment on post
                 elif key == 'c':
                     self.telprnt('Comment')
+                    # reply to the post 
                     await self.write_status(in_reply_to = posts[post_num])
-                if not(new_status == None):
-                    posts[post_num] = new_status
+                
+            # if we got a new status, set our current post to the new one
+            if not(new_status == None):
+                posts[post_num] = new_status
     
     # menu/loop for writing a status as the logged in user.
     # `in_reply_to` : the post, passed as a dict, that we're replying to
