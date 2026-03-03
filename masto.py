@@ -22,7 +22,10 @@ import asyncio, telnetlib3
 images = True
 quotes = True
 scrolling = True #Warning, will clog up your terminal scrollback if scroll_type == 'old'
-scroll_type = 'ansi' #if 'pager', uses pydoc pager. 'old' uses an older pager I wrote, and 'ansi' uses one made with ansi.
+scroll_type = 'ansi' 
+#   if 'pager', uses pydoc pager. !!!DOES NOT WORK WITH TELNET!!!
+#   'old' uses an older pager I wrote. !!!prints a LOT of stuff!!!
+#   'ansi' uses one made with ansi.
 telnet = False
 
 ##account settings
@@ -48,7 +51,7 @@ if not os.path.exists('./mastopy/resources/pfps'):
 class mastopy:
     # create the app
     # `name` : the local account name (if none, no local account: don't save)
-    # `api_base_url` : the server URL.
+    # `api_base_url` : the server URL (if none, will ask)
     async def app_create(self, name, api_base_url = None) :
         if (api_base_url == None):
             # get base url if it wasn't passed
@@ -394,9 +397,11 @@ class mastopy:
             # otherwise just return the length of the list we were passed
             return len(post_list)
     
-    ##TODO Documentation
+    # Scroll a post
+    # `scroll_list` : a list of lines we're going to scroll
     async def scroll(self, scroll_list):
         global scroll_type
+        # if we're using the pydoc pager !!!doesn't work over telnet!!!
         if scroll_type == 'pager':
             text_list = []
             for i in range(len(scroll_list)):
@@ -405,6 +410,7 @@ class mastopy:
             text = ''.join([(x+'\n') for x in text_list])
             text = re.sub(r'\x1b.*m', '', text)
             pager(text)
+        # otherwise, if it's the ansi pager (best one if you have ansi support)
         elif scroll_type == 'ansi':
             fromTop = self.get_terminal_size()[1] - 1
             old_fromTop = 0
@@ -437,6 +443,7 @@ class mastopy:
                         fromTop += self.get_terminal_size()[1] - 2
                     else:
                         fromTop = len(scroll_list)
+        # otherwise, if it's the older pager
         elif scroll_type == 'old':
             offset = 0
             #scroll
@@ -460,51 +467,72 @@ class mastopy:
                     else:
                         offset = 0
     
-    ##TODO Documentation
+    # display a post
+    # `post`    : a post dict
+    # returns the text we printed, for paging reasons
     async def display_post(self, post) :
         ##TODO Remake this so that I'm not `telprnt`ing *and* adding to `post_text`
         #       - add everything to `post_text` and then print it?
         #       - make a subfunction to do both at once?
         global imgwidth, imgwidthcrunch
-        show = True
+        
+        # shorthand for the account dict
         account = post['account']
+        
+        # show the post by default
+        show = True
+        
+        # initial info about the poster
         post_text = [
             textwrap.fill(account['display_name'] + ' | ' + account['acct'], self.get_terminal_size()[0]),
             textwrap.fill('posted on ' + str(post['created_at']), self.get_terminal_size()[0])
             ]
         self.telprnt(account['display_name'] + ' | ' + account['acct'])
         self.telprnt('posted on',  post['created_at'])
+        
+        # if we have a post url, print it
         if not(post['url'] == None):
             self.telprnt(post['url'])
             post_text.append(textwrap.fill(post['url'], self.get_terminal_size()[0]))
+        
+        # if the post is sensitive, y/n if we want to display it
         if post['sensitive']:
             show = await self.yn_prompt('sensitive content labeled "' + post['spoiler_text'] + '", display? (y/n) ')
             post_text.append(textwrap.fill('sensitive content labeled "' + post['spoiler_text'], self.get_terminal_size()[0]))
+        
+        # if there's no repost, print the post content
         if show and (post['reblog'] == None):
             self.telprnt('')
             self.telprnt(textwrap.fill(self.strip_tags(post['content']), self.get_terminal_size()[0], replace_whitespace=False))
             post_text.append('')
             post_text.append(textwrap.fill(self.strip_tags(post['content']), self.get_terminal_size()[0]))
+        
+        # if there are media attachments, go through showing them
+        ##TODO seperate this out into its own function?
         if show and (len(post['media_attachments']) != 0):
             self.telprnt('')
             self.telprnt('Post has media')
             post_text.append('')
             post_text.append('Post has media')
+            # remind the user that this is sensitive
             if post['sensitive']:
                 self.telprnt('Media for this post marked as sensitive')
                 post_text.append(textwrap.fill('Media for this post marked as sensitive', self.get_terminal_size()[0]))
             for attachment in post['media_attachments']:
+                # URL and alt text
                 self.telprnt('')
                 self.telprnt(attachment['url'])
                 self.telprnt(textwrap.fill(str(attachment['description']), self.get_terminal_size()[0]))
                 post_text.append('')
                 post_text.append(textwrap.fill(attachment['url'], self.get_terminal_size()[0]))
                 post_text.append(textwrap.fill(str(attachment['description']), self.get_terminal_size()[0]))
-
+                
+                # confirm we want to show the image, then show the image
                 if self.images and await self.yn_prompt('show image? (y/n) '):
                     try:
                         imgname = attachment['url'].split('/')[-1]
                         if imgname == 'original':
+                            ##TODO don't just assume PNG
                             imgname = 'original.png' # just assume PNG idk
                         urllib.request.urlretrieve(attachment['url'], './mastopy/resources/images/' + str(post['id']) + '_' + imgname)
                         if imgwidth > self.get_terminal_size()[0]:
@@ -517,12 +545,15 @@ class mastopy:
                         self.telprnt('Something went wrong displaying the image.')
                     self.telprnt('\033[0m', end='')
                     post_text.append('\033[0m')
+        
+        # if there's a poll, show it
         if show and (post['poll'] != None):
             self.telprnt('\nPost has poll.')
             post_text.append('')
             post_text.append('Post has poll')
             votetotal = post['poll']['votes_count']
             voted = post['poll']['voted']
+            # print the options
             for i in range(len(post['poll']['options'])):
                 if voted or post['poll']['expired']:
                     if i in post['poll']['own_votes']:
@@ -546,6 +577,7 @@ class mastopy:
                 post_text.append(itemcontent)
             self.telprnt("Total votes : " + str(votetotal))
             post_text.append("Total votes : " + str(votetotal))
+            # print some extra poll info
             if voted:
                 self.telprnt("You've voted in this poll.")
                 post_text.append("You've voted in this poll.")
@@ -555,13 +587,16 @@ class mastopy:
             else:
                 self.telprnt("Poll closes at " + str(post['poll']['expires_at']))
                 post_text.append("Poll closes at " + str(post['poll']['expires_at']))
+        
+        # if there's a repost, call this function on that repost
         if (post['reblog']):
                 self.telprnt('')
                 self.telprnt('Reposted :')
                 post_text.append('')
                 post_text.append('Reposted:')
                 post_text += await self.display_post(post['reblog'])
-        #telprnt('')
+        
+        # split `post_text` into lines
         post_text_final = []
         for i in range(len(post_text)):
             post_text_final += post_text[i].split('\n')
@@ -605,42 +640,65 @@ class mastopy:
         out += '\033[0m'
         return out
     
-    ##TODO Documentation
+    # Display an entire account
+    # `account`         : the account dict we want to display
+    # `relationship`    : The relationship dict (if you have it)
+    # `show_pfp`        : Bool, do we want to show the profile picture
+    # `show_banner`     : Bool, do we want to show the banner (only shows if show_pfp is `True`)
     def display_account(self, account, relationship=None, show_pfp = True, show_banner = True):
         self.telprnt('')
+        # if we didn't pass the relationship, get it
         if relationship == None:
             relation = self.mastodon.account_relationships(account['id'])[0]
         else:
             relation = relationship
+        
+        # if we're wanting to drawing the pfp (and images are enabled)
         wid = 10
         if show_pfp and self.images:
             hei = 5
             i = 0
             banner = []
-            while len(banner) < hei:
-                banner = self.display_pfp(account, request='header_static', width=30+i, deco=False).split('\n')[1:-1]
-                wid = 41 + i
-                i += 1
+            # if we're showing the banner
+            if show_banner:
+                # max our banner size, but min our width (probably not efficient )
+                while len(banner) < hei:
+                    banner = self.display_pfp(account, request='header_static', width=30+i, deco=False).split('\n')[1:-1]
+                    wid = 41 + i
+                    i += 1
+            # get the instructions for drawing our pfp
             pfp    = self.display_pfp(account, request='avatar_static', deco=False).split('\n')[1:-1]
+            
+            # print the pfp and banner
             self.telprnt(' ', end='')
             for i in range(wid):
                 self.telprnt('-', end='')
             for i in range(len(pfp)):
-                self.telprnt('\n|' + pfp[i] + '\033[0m|' + banner[i] + '\033[0m|', end='')
+                if show_banner:
+                    self.telprnt('\n|' + pfp[i] + '\033[0m|' + banner[i] + '\033[0m|', end='')
+                else:
+                    self.telprnt('\n|' + pfp[i] + '\033[0m|', end='')
             self.telprnt('\n ', end='')
             for i in range(wid):
                 self.telprnt('-', end='')
             self.telprnt('')
+        # print the display name and @
         self.telprnt(account['display_name'] + ' | ' + account['acct'])
+        # print their URL too
         self.telprnt(account['url'])
+        # and a note if they're a bot account
         if account['bot']:
             self.telprnt('Automated Account')
+        # print when the account was created
         self.telprnt('Created: ', account['created_at'])
+        # print our relation
         if relation['following']:
             self.telprnt('Following')
         self.hr(length=wid + 2)
+        # print the bio
         self.telprnt(self.strip_tags(account['note']))
         self.hr(length=wid + 2)
+        # and the account fields
         for field in account['fields']:
             self.telprnt(field['name'] + ' | ', end='')
             if not(field['verified_at'] == None):
@@ -648,11 +706,13 @@ class mastopy:
             self.telprnt(self.strip_tags(str(field['value'])) + '\033[0m')
         self.telprnt('')
     
-    ##TODO Documentation
+    # wrapper for getting 1 key worth of input
+    # returns a string
     getinput_key = []
     async def get_input(self) :
         global telnet
         #TODO: catch specific error
+        ##TODO what? what error?
         if telnet:
             key = str(await self.tnread.read(1)).lower()
             if key in ['\n', '\r', '']:
@@ -676,29 +736,11 @@ class mastopy:
             #print([key])
             return key
         else:
-            #telinput solution, worse than sshkeyboard but actually works
+            #telinput solution
             key = (await self.telinput()).lower()
             if key == "":
                 key = "enter"
             return key
-            
-            '''
-            #sshkeyboard solution, doesn't work because async
-            try:
-                self.getinput_key = []
-                def press(getinput_key, key) :
-                    getinput_key.append(key)
-                    stop_listening()
-                await listen_keyboard(on_press=press) #augh you're KILLIN me shhkeyboard
-                if len(self.getinput_key) == 0 :
-                    self.getinput_key.append('esc')
-                return(self.getinput_key[0])
-            except:
-                key = (await self.telinput()).lower()
-                if key == "":
-                    key = "enter"
-                return key
-            '''
     
     # easy shorthand for `do_menu()`, and return True/False on Y/N
     async def yn_prompt(self, prompt) :
@@ -722,23 +764,35 @@ class mastopy:
                 # the returned key will ALWAYS be in the list `valid_keys`.
                 return key
     
-    ##TODO Documentation
+    # do an account menu
+    # `account` : account dict we're doing a menu for
+    # returns `None` if no posts to display, or a list of posts if we chose some
     async def account_menu(self, account):
+        # get the relationship to an account
         relationship = self.mastodon.account_relationships(account['id'])[0]
+        # draw the account (and pass the relationship because we just got it )
         self.display_account(account, relationship)
         self.hr(minus=7)
+        # build our prompt!
         prompt = ''
+        # following
         if relationship['following']:
             prompt += 'Un<F>ollow, '
         else:
+            # if they're locked we have to send a request instead of just following them
             if account['locked']:
                 prompt += 'Send <F>ollow Request, '
             else:
                 prompt += '<F>ollow, '
+        # view posts
         prompt += '<V>iew Posts : '
+        
+        # do the menu
         key = await self.do_menu(['enter', 'f', 'v'], prompt)
         
+        # handle following
         if key == 'f':
+            # yes no prompt for all of these
             if relationship['following']:
                 self.telprnt('Unfollow')
                 if await self.yn_prompt('Are you sure? (y/n) : '):
@@ -752,10 +806,11 @@ class mastopy:
                     self.telprnt('Follow')
                     if await self.yn_prompt('Are you sure? (y/n)'):
                         self.mastodon.account_follow(account['id'])
+        # view posts
         elif key == 'v':
             self.telprnt('View Posts')
             numposts = await self.telinput("how many posts to load? ")
-            if numposts.isdigit():
+            if self.valid_numposts(numposts):
                 posts = self.mastodon.account_statuses(account['id'], limit=int(numposts))
                 return posts
         return None
@@ -1165,6 +1220,7 @@ class mastopy:
                     visibility = 'direct'
     
     # check for a valid number of posts for a request
+    # `number`  : an int we're checking
     def valid_numposts(self, number):
         return number.isdigit() and int(number) > 0
     
@@ -1334,7 +1390,7 @@ class mastopy:
         return replies_full, post_num
     
     # make our telnet reader and writer
-    # only really used by our low lever input/output functions
+    # only really used by our low level input/output functions
     def __init__(self, reader, writer):
         self.tnread = reader
         self.tnwrite = writer
