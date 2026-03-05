@@ -286,10 +286,13 @@ class mastopy:
             return out
 
     # os.get_terminal_size() but with a telnet fallback
+    telnetSize = None
     def get_terminal_size(self):
         global telnet
         if telnet:
-            return([80,25]) ##TODO make telnet terminal size configurable
+            if self.telnetSize != None:
+                return self.telnetSize
+            return([80,25])
         return os.get_terminal_size()
 
     # like "print()" but with extra special telnet stuff
@@ -1410,7 +1413,19 @@ class mastopy:
             self.telprnt('Press your backspace key ', end='')
             self.backspace = await self.get_input()
             self.telprnt("")
-            ##TODO ask user for term width if telnet
+            customSize = False
+            self.telprnt('What is your terminal width? ', end='')
+            wid = await self.telinput()
+            if wid.isdigit():
+                self.telprnt('What is your terminal height? ', end='')
+                hei = await self.telinput()
+                if wid.isdigit() and hei.isdigit():
+                    self.telnetSize = (int(wid), int(hei))
+                    customSize = True
+            if customSize:
+                self.telprnt(f'Terminal size: {self.telnetSize[0]}x{self.telnetSize[1]}')
+            else:
+                self.telprnt(f'Terminal size: 80x20')
         
         # ask the user to config stuff
         if askimages:
